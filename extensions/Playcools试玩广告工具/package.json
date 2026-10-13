@@ -1,0 +1,46 @@
+{
+  "package_version": 2,
+  "name": "playcools",
+  "version": "1.0.0",
+  "description": "Playcools试玩广告工具",
+  "author": "Soyoo",
+  "main": "./dist/main.js",
+  "panels": {
+    "default": {
+      "title": "Playcools v1.0.0",
+      "main": "dist/panels/main",
+      "type": "simple",
+      "size": {
+        "min-width": 700,
+        "min-height": 520,
+        "width": 1100,
+        "height": 720
+      }
+    }
+  },
+  "contributions": {
+    "menu": [
+      {
+        "path": "扩展",
+        "label": "Playcools试玩广告工具",
+        "message": "open-main-panel"
+      }
+    ],
+    "messages": {
+      "open-main-panel": {
+        "methods": [
+          "openMainPanel"
+        ]
+      }
+    }
+  },
+  "engines": {
+    "cocos": "3.x"
+  },
+  "keywords": [
+    "cocos-creator",
+    "playcools",
+    "playable"
+  ],
+  "_storeId": "5954c3710e06958719543dc3cb6a11a5"
+}
