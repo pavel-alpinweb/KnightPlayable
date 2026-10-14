@@ -1,9 +1,13 @@
-import { _decorator, Component, dragonBones } from 'cc';
+import { _decorator, Component, dragonBones, Node } from 'cc';
+import {HeroController} from "./HeroController";
 const { ccclass, property, requireComponent } = _decorator;
 
 @ccclass('EnemyController')
 @requireComponent(dragonBones.ArmatureDisplay)
 export class EnemyController extends Component {
+    @property({ type: HeroController, tooltip: 'Ссылка на HeroController' })
+    public hero: HeroController | null = null;
+
     @property({ tooltip: 'Имя анимации покоя (idle)' })
     public idleAnimationName: string = 'idle';
 
@@ -15,6 +19,18 @@ export class EnemyController extends Component {
     protected onLoad(): void {
         this._armatureDisplay = this.getComponent(dragonBones.ArmatureDisplay)!;
         this._armatureDisplay.animationCacheMode = dragonBones.ArmatureDisplay.AnimationCacheMode.REALTIME;
+
+        this.node.on(Node.EventType.TOUCH_END, this.onClick, this);
+    }
+
+    protected onDestroy(): void {
+        this.node.off(Node.EventType.TOUCH_END, this.onClick, this);
+    }
+
+    private onClick(): void {
+        if (this.hero) {
+            this.hero.moveToEnemy(this.node);
+        }
     }
 
     start(): void {

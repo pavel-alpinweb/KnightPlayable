@@ -1,5 +1,6 @@
-import { _decorator, Component, dragonBones } from 'cc';
+import { _decorator, Component, dragonBones, Tween, tween, Node, Vec3 } from 'cc';
 const { ccclass, property, requireComponent } = _decorator;
+
 
 @ccclass('HeroController')
 @requireComponent(dragonBones.ArmatureDisplay)
@@ -10,7 +11,23 @@ export class HeroController extends Component {
     @property({ tooltip: 'Скорость анимации idle (1.0 = нормальная скорость)' })
     public idleTimeScale: number = 1.0;
 
+    @property({ tooltip: 'Имя анимации ходьбы (walking)' })
+    public walkAnimationName: string = 'walking';
+
+    @property({ tooltip: 'Скорость анимации ходьбы (1.0 = нормальная скорость)' })
+    public walkTimeScale: number = 1.0;
+
+    @property({ tooltip: 'Время перемещения к противнику в секундах' })
+    public moveDuration: number = 2.0;
+
+    @property({ tooltip: 'Дистанция остановки перед противником по X (положительное значение оставит отступ)' })
+    public stopDistance: number = 0;
+
+    @property({ tooltip: 'Смотрит ли персонаж вправо по умолчанию (при положительном scale.x)' })
+    public isFacingRightDefault: boolean = true;
+
     private _armatureDisplay!: dragonBones.ArmatureDisplay;
+    private _moveTween: Tween<Node> | null = null;
 
     protected onLoad(): void {
         this._armatureDisplay = this.getComponent(dragonBones.ArmatureDisplay)!;
@@ -34,6 +51,18 @@ export class HeroController extends Component {
     }
 
     /**
+     * Воспроизводит walking анимацию с заданной скоростью
+     */
+    public playWalk(): void {
+        this._armatureDisplay.timeScale = this.walkTimeScale;
+
+        const animState = this._armatureDisplay.playAnimation(this.walkAnimationName, 0);
+        if (animState) {
+            animState.timeScale = this.walkTimeScale;
+        }
+    }
+
+    /**
      * Обновляет скорость idle анимации во время выполнения
      */
     public setIdleTimeScale(scale: number): void {
@@ -45,5 +74,76 @@ export class HeroController extends Component {
         if (animState) {
             animState.timeScale = scale;
         }
+    }
+
+    /**
+     * Разворачивает персонажа по горизонтали
+     * @param flip true — отразить по горизонтали, false — исходное направление
+     */
+    public setFlipX(flip: boolean): void {
+        const currentScale = this.node.scale;
+        const absX = Math.abs(currentScale.x);
+        const targetX = flip ? -absX : absX;
+
+        if (currentScale.x !== targetX) {
+            this.node.setScale(targetX, currentScale.y, currentScale.z);
+        }
+    }
+
+    /**
+     * Разворачивает персонажа лицом в направлении цели по оси X
+     */
+    public faceTowards(targetLocalX: number): void {
+        const dx = targetLocalX - this.node.position.x;
+        if (Math.abs(dx) < 0.001) {
+            return;
+        }
+
+        const movingRight = dx > 0;
+        // Если персонаж изначально смотрит вправо:
+        // движение влево -> flipX = true, движение вправо -> flipX = false
+        const flip = this.isFacingRightDefault ? !movingRight : movingRight;
+        this.setFlipX(flip);
+    }
+
+    /**
+     * Перемещает персонажа к указанной ноде противника
+     */
+    public moveToEnemy(enemyNode: Node): void {
+        if (!enemyNode) {
+            return;
+        }
+
+        if (this._moveTween) {
+            this._moveTween.stop();
+            this._moveTween = null;
+        }
+
+        this.playWalk();
+
+        // Переводим мировую позицию противника в локальные координаты родителя персонажа
+        const targetLocalPos = new Vec3();
+        if (this.node.parent) {
+            this.node.parent.inverseTransformPoint(targetLocalPos, enemyNode.worldPosition);
+        } else {
+            targetLocalPos.set(enemyNode.worldPosition);
+        }
+
+        // Разворачиваем лицом к противнику
+        this.faceTowards(targetLocalPos.x);
+
+        // Учитываем дистанцию остановки (если персонаж слева от врага — останавливаемся левее)
+        if (this.stopDistance > 0) {
+            const directionX = this.node.position.x < targetLocalPos.x ? -1 : 1;
+            targetLocalPos.x += directionX * this.stopDistance;
+        }
+
+        this._moveTween = tween(this.node)
+            .to(this.moveDuration, { position: targetLocalPos })
+            .call(() => {
+                this._moveTween = null;
+                this.playIdle();
+            })
+            .start();
     }
 }
