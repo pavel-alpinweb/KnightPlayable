@@ -1,4 +1,5 @@
 import { _decorator, Component, dragonBones, Tween, tween, Node, Vec3 } from 'cc';
+import type { WeaponController } from './WeaponController';
 const { ccclass, property, requireComponent } = _decorator;
 
 
@@ -32,10 +33,28 @@ export class HeroController extends Component {
     protected onLoad(): void {
         this._armatureDisplay = this.getComponent(dragonBones.ArmatureDisplay)!;
         this._armatureDisplay.animationCacheMode = dragonBones.ArmatureDisplay.AnimationCacheMode.REALTIME;
+        this.setWeaponVisible(false);
     }
 
     start(): void {
         this.playIdle();
+    }
+
+    /**
+     * Управляет отображением меча в DragonBones слоте 'sword'
+     * @param visible true — показать меч, false — скрыть
+     */
+    public setWeaponVisible(visible: boolean): void {
+        const armature = this._armatureDisplay.armature();
+        if (!armature) {
+            return;
+        }
+
+        const slot = armature.getSlot('sword');
+        if (slot) {
+            // В DragonBones displayIndex = -1 скрывает отображение слота, >= 0 отображает соответствующий display
+            slot.displayIndex = visible ? 0 : -1;
+        }
     }
 
     /**
@@ -143,6 +162,55 @@ export class HeroController extends Component {
             .call(() => {
                 this._moveTween = null;
                 this.playIdle();
+            })
+            .start();
+    }
+
+    /**
+     * Перемещает персонажа к указанному оружию и экипирует его
+     */
+    public moveToWeapon(weapon: WeaponController | Node): void {
+        if (!weapon) {
+            return;
+        }
+
+        const weaponNode = weapon instanceof Node ? weapon : weapon.node;
+        const weaponController = weapon instanceof Node ? weapon.getComponent('WeaponController') as WeaponController | null : weapon;
+
+        if (this._moveTween) {
+            this._moveTween.stop();
+            this._moveTween = null;
+        }
+
+        this.playWalk();
+
+        const targetLocalPos = new Vec3();
+        if (this.node.parent) {
+            this.node.parent.inverseTransformPoint(targetLocalPos, weaponNode.worldPosition);
+        } else {
+            targetLocalPos.set(weaponNode.worldPosition);
+        }
+
+        this.faceTowards(targetLocalPos.x);
+
+        if (this.stopDistance > 0) {
+            const directionX = this.node.position.x < targetLocalPos.x ? -1 : 1;
+            targetLocalPos.x += directionX * this.stopDistance;
+        }
+
+        this._moveTween = tween(this.node)
+            .to(this.moveDuration, { position: targetLocalPos })
+            .call(() => {
+                this._moveTween = null;
+                this.playIdle();
+
+                if (weaponController && typeof weaponController.removeWepon === 'function') {
+                    weaponController.removeWepon();
+                } else {
+                    weaponNode.destroy();
+                }
+
+                this.setWeaponVisible(true);
             })
             .start();
     }
