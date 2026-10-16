@@ -1,11 +1,20 @@
-import { _decorator, Component, dragonBones, Tween, tween, Node, Vec3 } from 'cc';
+import { _decorator, Component, dragonBones, Tween, tween, Node, Vec3, Label } from 'cc';
 import type { WeaponController } from './WeaponController';
+import type { EnemyController } from './EnemyController';
 const { ccclass, property, requireComponent } = _decorator;
 
 
 @ccclass('HeroController')
-@requireComponent(dragonBones.ArmatureDisplay)
 export class HeroController extends Component {
+    @property({ type: dragonBones.ArmatureDisplay, tooltip: 'Ссылка на ArmatureDisplay (если не задано, ищется в дочерних нодах)' })
+    public armatureDisplay: dragonBones.ArmatureDisplay | null = null;
+
+    @property({ type: Label, tooltip: 'Ссылка на Label уровня/силы (если не задано, ищется в дочерних нодах)' })
+    public powerLabel: Label | null = null;
+
+    @property({ tooltip: 'Начальный уровень / сила героя' })
+    public initialPower: number = 10;
+
     @property({ tooltip: 'Имя анимации покоя (idle)' })
     public idleAnimationName: string = 'idle';
 
@@ -27,12 +36,23 @@ export class HeroController extends Component {
     @property({ tooltip: 'Смотрит ли персонаж вправо по умолчанию (при положительном scale.x)' })
     public isFacingRightDefault: boolean = true;
 
-    private _armatureDisplay!: dragonBones.ArmatureDisplay;
+    private _power: number = 0;
     private _moveTween: Tween<Node> | null = null;
 
     protected onLoad(): void {
-        this._armatureDisplay = this.getComponent(dragonBones.ArmatureDisplay)!;
-        this._armatureDisplay.animationCacheMode = dragonBones.ArmatureDisplay.AnimationCacheMode.REALTIME;
+        if (!this.armatureDisplay) {
+            this.armatureDisplay = this.getComponentInChildren(dragonBones.ArmatureDisplay);
+        }
+
+        if (this.armatureDisplay) {
+            this.armatureDisplay.animationCacheMode = dragonBones.ArmatureDisplay.AnimationCacheMode.REALTIME;
+        }
+
+        if (!this.powerLabel) {
+            this.powerLabel = this.getComponentInChildren(Label);
+        }
+
+        this.setPower(this.initialPower);
         this.setWeaponVisible(false);
     }
 
@@ -41,11 +61,32 @@ export class HeroController extends Component {
     }
 
     /**
+     * Устанавливает текущую силу героя и обновляет Label
+     */
+    public setPower(value: number): void {
+        this._power = value;
+        if (this.powerLabel) {
+            this.powerLabel.string = `${this._power}`;
+        }
+    }
+
+    /**
+     * Изменяет текущую силу героя на дельту
+     */
+    public addPower(delta: number): void {
+        this.setPower(this._power + delta);
+    }
+
+    /**
      * Управляет отображением меча в DragonBones слоте 'sword'
      * @param visible true — показать меч, false — скрыть
      */
     public setWeaponVisible(visible: boolean): void {
-        const armature = this._armatureDisplay.armature();
+        if (!this.armatureDisplay) {
+            return;
+        }
+
+        const armature = this.armatureDisplay.armature();
         if (!armature) {
             return;
         }
@@ -61,9 +102,13 @@ export class HeroController extends Component {
      * Воспроизводит idle анимацию с заданной скоростью
      */
     public playIdle(): void {
-        this._armatureDisplay.timeScale = this.idleTimeScale;
+        if (!this.armatureDisplay) {
+            return;
+        }
 
-        const animState = this._armatureDisplay.playAnimation(this.idleAnimationName, 0);
+        this.armatureDisplay.timeScale = this.idleTimeScale;
+
+        const animState = this.armatureDisplay.playAnimation(this.idleAnimationName, 0);
         if (animState) {
             animState.timeScale = this.idleTimeScale;
         }
@@ -73,9 +118,13 @@ export class HeroController extends Component {
      * Воспроизводит walking анимацию с заданной скоростью
      */
     public playWalk(): void {
-        this._armatureDisplay.timeScale = this.walkTimeScale;
+        if (!this.armatureDisplay) {
+            return;
+        }
 
-        const animState = this._armatureDisplay.playAnimation(this.walkAnimationName, 0);
+        this.armatureDisplay.timeScale = this.walkTimeScale;
+
+        const animState = this.armatureDisplay.playAnimation(this.walkAnimationName, 0);
         if (animState) {
             animState.timeScale = this.walkTimeScale;
         }
@@ -86,9 +135,13 @@ export class HeroController extends Component {
      */
     public setIdleTimeScale(scale: number): void {
         this.idleTimeScale = scale;
-        this._armatureDisplay.timeScale = scale;
+        if (!this.armatureDisplay) {
+            return;
+        }
 
-        const armature = this._armatureDisplay.armature();
+        this.armatureDisplay.timeScale = scale;
+
+        const armature = this.armatureDisplay.armature();
         const animState = armature?.animation.getState(this.idleAnimationName);
         if (animState) {
             animState.timeScale = scale;
@@ -96,16 +149,17 @@ export class HeroController extends Component {
     }
 
     /**
-     * Разворачивает персонажа по горизонтали
+     * Разворачивает графику персонажа по горизонтали (не затрагивая UI/Label)
      * @param flip true — отразить по горизонтали, false — исходное направление
      */
     public setFlipX(flip: boolean): void {
-        const currentScale = this.node.scale;
+        const targetNode = this.armatureDisplay ? this.armatureDisplay.node : this.node;
+        const currentScale = targetNode.scale;
         const absX = Math.abs(currentScale.x);
         const targetX = flip ? -absX : absX;
 
         if (currentScale.x !== targetX) {
-            this.node.setScale(targetX, currentScale.y, currentScale.z);
+            targetNode.setScale(targetX, currentScale.y, currentScale.z);
         }
     }
 
@@ -126,12 +180,16 @@ export class HeroController extends Component {
     }
 
     /**
-     * Перемещает персонажа к указанной ноде противника
+     * Перемещает персонажа к указанному противнику и инициирует бой
      */
-    public moveToEnemy(enemyNode: Node): void {
-        if (!enemyNode) {
+    public moveToEnemy(enemy: EnemyController | Node): void {
+        console.log('moveToEnemy', enemy);
+        if (!enemy) {
             return;
         }
+
+        const enemyNode = enemy instanceof Node ? enemy : enemy.node;
+        const enemyController = enemy instanceof Node ? enemy.getComponent('EnemyController') as EnemyController | null : enemy;
 
         if (this._moveTween) {
             this._moveTween.stop();
@@ -162,8 +220,28 @@ export class HeroController extends Component {
             .call(() => {
                 this._moveTween = null;
                 this.playIdle();
+
+                if (enemyController) {
+                    if (this._power >= enemyController.power) {
+                        // Победа: забираем силу врага и уничтожаем его
+                        this.addPower(enemyController.power);
+                        enemyController.die();
+                    } else {
+                        // Поражение героя
+                        this.die();
+                    }
+                } else {
+                    enemyNode.destroy();
+                }
             })
             .start();
+    }
+
+    /**
+     * Поражение / гибель героя
+     */
+    public die(): void {
+        this.node.destroy();
     }
 
     /**
@@ -204,8 +282,9 @@ export class HeroController extends Component {
                 this._moveTween = null;
                 this.playIdle();
 
-                if (weaponController && typeof weaponController.removeWepon === 'function') {
-                    weaponController.removeWepon();
+                if (weaponController) {
+                    this.addPower(weaponController.power);
+                    weaponController.removeWeapon();
                 } else {
                     weaponNode.destroy();
                 }

@@ -1,12 +1,20 @@
-import { _decorator, Component, dragonBones, Node } from 'cc';
-import {HeroController} from "./HeroController";
-const { ccclass, property, requireComponent } = _decorator;
+import { _decorator, Component, dragonBones, Node, Label } from 'cc';
+import { HeroController } from './HeroController';
+const { ccclass, property } = _decorator;
 
 @ccclass('EnemyController')
-@requireComponent(dragonBones.ArmatureDisplay)
 export class EnemyController extends Component {
     @property({ type: HeroController, tooltip: 'Ссылка на HeroController' })
     public hero: HeroController | null = null;
+
+    @property({ type: dragonBones.ArmatureDisplay, tooltip: 'Ссылка на ArmatureDisplay (если не задано, ищется в дочерних нодах)' })
+    public armatureDisplay: dragonBones.ArmatureDisplay | null = null;
+
+    @property({ type: Label, tooltip: 'Ссылка на Label уровня/силы (если не задано, ищется в дочерних нодах)' })
+    public powerLabel: Label | null = null;
+
+    @property({ tooltip: 'Сила / уровень противника' })
+    public power: number = 5;
 
     @property({ tooltip: 'Имя анимации покоя (idle)' })
     public idleAnimationName: string = 'idle';
@@ -14,12 +22,20 @@ export class EnemyController extends Component {
     @property({ tooltip: 'Скорость анимации idle (1.0 = нормальная скорость)' })
     public idleTimeScale: number = 1.0;
 
-    private _armatureDisplay!: dragonBones.ArmatureDisplay;
-
     protected onLoad(): void {
-        this._armatureDisplay = this.getComponent(dragonBones.ArmatureDisplay)!;
-        this._armatureDisplay.animationCacheMode = dragonBones.ArmatureDisplay.AnimationCacheMode.REALTIME;
+        if (!this.armatureDisplay) {
+            this.armatureDisplay = this.getComponentInChildren(dragonBones.ArmatureDisplay);
+        }
 
+        if (this.armatureDisplay) {
+            this.armatureDisplay.animationCacheMode = dragonBones.ArmatureDisplay.AnimationCacheMode.REALTIME;
+        }
+
+        if (!this.powerLabel) {
+            this.powerLabel = this.getComponentInChildren(Label);
+        }
+
+        this.setPower(this.power);
         this.node.on(Node.EventType.TOUCH_END, this.onClick, this);
     }
 
@@ -27,9 +43,19 @@ export class EnemyController extends Component {
         this.node.off(Node.EventType.TOUCH_END, this.onClick, this);
     }
 
+    /**
+     * Задает силу противника и обновляет Label
+     */
+    public setPower(value: number): void {
+        this.power = value;
+        if (this.powerLabel) {
+            this.powerLabel.string = `${this.power}`;
+        }
+    }
+
     private onClick(): void {
         if (this.hero) {
-            this.hero.moveToEnemy(this.node);
+            this.hero.moveToEnemy(this);
         }
     }
 
@@ -41,9 +67,13 @@ export class EnemyController extends Component {
      * Воспроизводит idle анимацию с заданной скоростью
      */
     public playIdle(): void {
-        this._armatureDisplay.timeScale = this.idleTimeScale;
+        if (!this.armatureDisplay) {
+            return;
+        }
 
-        const animState = this._armatureDisplay.playAnimation(this.idleAnimationName, 0);
+        this.armatureDisplay.timeScale = this.idleTimeScale;
+
+        const animState = this.armatureDisplay.playAnimation(this.idleAnimationName, 0);
         if (animState) {
             animState.timeScale = this.idleTimeScale;
         }
@@ -54,12 +84,23 @@ export class EnemyController extends Component {
      */
     public setIdleTimeScale(scale: number): void {
         this.idleTimeScale = scale;
-        this._armatureDisplay.timeScale = scale;
+        if (!this.armatureDisplay) {
+            return;
+        }
 
-        const armature = this._armatureDisplay.armature();
+        this.armatureDisplay.timeScale = scale;
+
+        const armature = this.armatureDisplay.armature();
         const animState = armature?.animation.getState(this.idleAnimationName);
         if (animState) {
             animState.timeScale = scale;
         }
+    }
+
+    /**
+     * Уничтожает противника
+     */
+    public die(): void {
+        this.node.destroy();
     }
 }
