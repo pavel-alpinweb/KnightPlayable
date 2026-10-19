@@ -27,6 +27,21 @@ export class HeroController extends Component {
     @property({ tooltip: 'Скорость анимации ходьбы (1.0 = нормальная скорость)' })
     public walkTimeScale: number = 1.0;
 
+    @property({ tooltip: 'Имя анимации атаки (attack)' })
+    public attackAnimationName: string = 'attack';
+
+    @property({ tooltip: 'Скорость анимации атаки (1.0 = нормальная скорость)' })
+    public attackTimeScale: number = 1.0;
+
+    @property({ tooltip: 'Задержка до контакта удара в секундах (момент опускания меча на врага)' })
+    public attackHitDelay: number = 0.25;
+
+    @property({ tooltip: 'Имя анимации гибели (die)' })
+    public dieAnimationName: string = 'die';
+
+    @property({ tooltip: 'Скорость анимации гибели (1.0 = нормальная скорость)' })
+    public dieTimeScale: number = 1.0;
+
     @property({ tooltip: 'Время перемещения к противнику в секундах' })
     public moveDuration: number = 2.0;
 
@@ -35,6 +50,11 @@ export class HeroController extends Component {
 
     @property({ tooltip: 'Смотрит ли персонаж вправо по умолчанию (при положительном scale.x)' })
     public isFacingRightDefault: boolean = true;
+
+    /** Callback при поражении героя (вызывается после завершения анимации смерти) */
+    public onDefeat: (() => void) | null = () => {
+        console.log('Player Defeated! Show Fail Screen / CTA');
+    };
 
     private _power: number = 0;
     private _moveTween: Tween<Node> | null = null;
@@ -131,6 +151,35 @@ export class HeroController extends Component {
     }
 
     /**
+     * Воспроизводит attack анимацию один раз и возвращается в idle
+     * @param onComplete вызывается по окончании анимации атаки
+     */
+    public playAttack(onComplete?: () => void): void {
+        if (!this.armatureDisplay) {
+            if (onComplete) onComplete();
+            return;
+        }
+
+        const onAttackComplete = () => {
+            this.armatureDisplay?.removeEventListener(dragonBones.EventObject.COMPLETE, onAttackComplete, this);
+            this.playIdle();
+            if (onComplete) {
+                onComplete();
+            }
+        };
+
+        this.armatureDisplay.timeScale = this.attackTimeScale;
+        this.armatureDisplay.addEventListener(dragonBones.EventObject.COMPLETE, onAttackComplete, this);
+
+        const animState = this.armatureDisplay.playAnimation(this.attackAnimationName, 1);
+        if (!animState) {
+            onAttackComplete();
+        } else {
+            animState.timeScale = this.attackTimeScale;
+        }
+    }
+
+    /**
      * Обновляет скорость idle анимации во время выполнения
      */
     public setIdleTimeScale(scale: number): void {
@@ -219,18 +268,39 @@ export class HeroController extends Component {
             .to(this.moveDuration, { position: targetLocalPos })
             .call(() => {
                 this._moveTween = null;
-                this.playIdle();
 
                 if (enemyController) {
                     if (this._power >= enemyController.power) {
-                        // Победа: забираем силу врага и уничтожаем его
-                        this.addPower(enemyController.power);
-                        enemyController.die();
+                        const enemyRewardPower = enemyController.power;
+
+                        // 1. Герой начинает замах атаки
+                        this.playAttack();
+
+                        // 2. В момент кульминации удара (attackHitDelay) враг реагирует смертью
+                        this.scheduleOnce(() => {
+                            enemyController.die(() => {
+                                // 3. После завершения анимации враг удаляется, а герою прибавляется сила
+                                this.addPower(enemyRewardPower);
+                            });
+                        }, this.attackHitDelay);
                     } else {
-                        // Поражение героя
-                        this.die();
+                        // Герой останавливается перед сильным противником
+                        this.playIdle();
+
+                        // 1. Враг наносит удар
+                        enemyController.playAttack();
+
+                        // 2. В момент удара врага герой проигрывает гибель
+                        this.scheduleOnce(() => {
+                            this.die(() => {
+                                if (this.onDefeat) {
+                                    this.onDefeat();
+                                }
+                            });
+                        }, enemyController.attackHitDelay);
                     }
                 } else {
+                    this.playIdle();
                     enemyNode.destroy();
                 }
             })
@@ -238,10 +308,36 @@ export class HeroController extends Component {
     }
 
     /**
-     * Поражение / гибель героя
+     * Поражение / гибель героя с анимацией die
+     * @param onComplete callback по окончании анимации смерти
      */
-    public die(): void {
-        this.node.destroy();
+    public die(onComplete?: () => void): void {
+        // Скрываем плашку уровня/силы при гибели
+        if (this.powerLabel) {
+            this.powerLabel.node.active = false;
+        }
+
+        if (!this.armatureDisplay) {
+            if (onComplete) onComplete();
+            return;
+        }
+
+        const onDieComplete = () => {
+            this.armatureDisplay?.removeEventListener(dragonBones.EventObject.COMPLETE, onDieComplete, this);
+            if (onComplete) {
+                onComplete();
+            }
+        };
+
+        this.armatureDisplay.timeScale = this.dieTimeScale;
+        this.armatureDisplay.addEventListener(dragonBones.EventObject.COMPLETE, onDieComplete, this);
+
+        const animState = this.armatureDisplay.playAnimation(this.dieAnimationName, 1);
+        if (!animState) {
+            onDieComplete();
+        } else {
+            animState.timeScale = this.dieTimeScale;
+        }
     }
 
     /**

@@ -22,6 +22,21 @@ export class EnemyController extends Component {
     @property({ tooltip: 'Скорость анимации idle (1.0 = нормальная скорость)' })
     public idleTimeScale: number = 1.0;
 
+    @property({ tooltip: 'Имя анимации гибели (die)' })
+    public dieAnimationName: string = 'die';
+
+    @property({ tooltip: 'Скорость анимации гибели (1.0 = нормальная скорость)' })
+    public dieTimeScale: number = 1.0;
+
+    @property({ tooltip: 'Имя анимации атаки (attack)' })
+    public attackAnimationName: string = 'attack';
+
+    @property({ tooltip: 'Скорость анимации атаки (1.0 = нормальная скорость)' })
+    public attackTimeScale: number = 1.0;
+
+    @property({ tooltip: 'Задержка до контакта удара в секундах (момент удара по герою)' })
+    public attackHitDelay: number = 0.25;
+
     protected onLoad(): void {
         if (!this.armatureDisplay) {
             this.armatureDisplay = this.getComponentInChildren(dragonBones.ArmatureDisplay);
@@ -98,9 +113,70 @@ export class EnemyController extends Component {
     }
 
     /**
-     * Уничтожает противника
+     * Воспроизводит анимацию гибели 1 раз и по окончании удаляет ноду
+     * @param onComplete callback по завершению анимации (перед destroy)
      */
-    public die(): void {
-        this.node.destroy();
+    public die(onComplete?: () => void): void {
+        // Отключаем тач-события, чтобы по умирающему врагу нельзя было кликать
+        this.node.off(Node.EventType.TOUCH_END, this.onClick, this);
+
+        // Скрываем плашку уровня/силы при гибели
+        if (this.powerLabel) {
+            this.powerLabel.node.active = false;
+        }
+
+        if (!this.armatureDisplay) {
+            if (onComplete) onComplete();
+            this.node.destroy();
+            return;
+        }
+
+        const onAnimComplete = () => {
+            this.armatureDisplay?.removeEventListener(dragonBones.EventObject.COMPLETE, onAnimComplete, this);
+            if (onComplete) {
+                onComplete();
+            }
+            this.node.destroy();
+        };
+
+        this.armatureDisplay.timeScale = this.dieTimeScale;
+        this.armatureDisplay.addEventListener(dragonBones.EventObject.COMPLETE, onAnimComplete, this);
+
+        const animState = this.armatureDisplay.playAnimation(this.dieAnimationName, 1);
+        if (!animState) {
+            // Если анимация с таким именем отсутствует в armature, завершаем сразу
+            onAnimComplete();
+        } else {
+            animState.timeScale = this.dieTimeScale;
+        }
+    }
+
+    /**
+     * Воспроизводит attack анимацию один раз и возвращается в idle
+     * @param onComplete вызывается по окончании анимации атаки
+     */
+    public playAttack(onComplete?: () => void): void {
+        if (!this.armatureDisplay) {
+            if (onComplete) onComplete();
+            return;
+        }
+
+        const onAttackComplete = () => {
+            this.armatureDisplay?.removeEventListener(dragonBones.EventObject.COMPLETE, onAttackComplete, this);
+            this.playIdle();
+            if (onComplete) {
+                onComplete();
+            }
+        };
+
+        this.armatureDisplay.timeScale = this.attackTimeScale;
+        this.armatureDisplay.addEventListener(dragonBones.EventObject.COMPLETE, onAttackComplete, this);
+
+        const animState = this.armatureDisplay.playAnimation(this.attackAnimationName, 1);
+        if (!animState) {
+            onAttackComplete();
+        } else {
+            animState.timeScale = this.attackTimeScale;
+        }
     }
 }
