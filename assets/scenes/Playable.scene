@@ -7591,6 +7591,7 @@
     "enemiesManager": {
       "__id__": 183
     },
+    "screenPaddingFactor": 0.125,
     "_id": "78YCKuJ/ZIR6YGreV4tep1"
   },
   {
