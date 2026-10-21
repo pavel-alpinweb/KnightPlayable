@@ -1,5 +1,6 @@
 import { _decorator, Component, dragonBones, Node, Label } from 'cc';
 import { HeroController } from './HeroController';
+import type { EnemiesManager } from './EnemiesManager';
 const { ccclass, property } = _decorator;
 
 @ccclass('EnemyController')
@@ -125,7 +126,14 @@ export class EnemyController extends Component {
             this.powerLabel.node.active = false;
         }
 
+        // Получаем EnemiesManager заранее до удаления ноды из иерархии
+        const enemiesManager = this.node.parent?.getComponent('EnemiesManager') as EnemiesManager | null
+            || this.node.scene.getComponentInChildren('EnemiesManager') as EnemiesManager | null;
+
         if (!this.armatureDisplay) {
+            if (enemiesManager) {
+                enemiesManager.onEnemyDied(this);
+            }
             if (onComplete) onComplete();
             this.node.destroy();
             return;
@@ -133,6 +141,12 @@ export class EnemyController extends Component {
 
         const onAnimComplete = () => {
             this.armatureDisplay?.removeEventListener(dragonBones.EventObject.COMPLETE, onAnimComplete, this);
+
+            // Вызываем onEnemyDied только после завершения анимации гибели
+            if (enemiesManager) {
+                enemiesManager.onEnemyDied(this);
+            }
+
             if (onComplete) {
                 onComplete();
             }
