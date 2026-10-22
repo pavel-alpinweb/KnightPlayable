@@ -8,6 +8,12 @@ export class EnemyController extends Component {
     @property({ type: HeroController, tooltip: 'Ссылка на HeroController' })
     public hero: HeroController | null = null;
 
+    @property({ type: Node, tooltip: 'Точка атаки, куда должен подойти герой перед этим врагом' })
+    public attackPoint: Node | null = null;
+
+    @property({ tooltip: 'Индекс точки маршрута в RouteController, к которому привязан враг (0-based)' })
+    public routeIndex: number = 0;
+
     @property({ type: dragonBones.ArmatureDisplay, tooltip: 'Ссылка на ArmatureDisplay (если не задано, ищется в дочерних нодах)' })
     public armatureDisplay: dragonBones.ArmatureDisplay | null = null;
 
@@ -39,9 +45,13 @@ export class EnemyController extends Component {
     public attackHitDelay: number = 0.25;
 
     protected onLoad(): void {
-        if (!this.armatureDisplay) {
-            this.armatureDisplay = this.getComponentInChildren(dragonBones.ArmatureDisplay);
-        }
+            if (!this.attackPoint) {
+                this.attackPoint = this.node.getChildByName('AttackPoint');
+            }
+
+            if (!this.armatureDisplay) {
+                this.armatureDisplay = this.getComponentInChildren(dragonBones.ArmatureDisplay);
+            }
 
         if (this.armatureDisplay) {
             this.armatureDisplay.animationCacheMode = dragonBones.ArmatureDisplay.AnimationCacheMode.REALTIME;
