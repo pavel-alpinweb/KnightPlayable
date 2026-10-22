@@ -1,13 +1,21 @@
 import { _decorator, Component, dragonBones, Tween, tween, Node, Vec3, Label } from 'cc';
 import type { WeaponController } from './WeaponController';
 import type { EnemyController } from './EnemyController';
+import { PathController } from './PathController';
+import { RouteController } from './RouteController';
 const { ccclass, property, requireComponent } = _decorator;
 
-
 @ccclass('HeroController')
+@requireComponent(PathController)
 export class HeroController extends Component {
     @property({ type: dragonBones.ArmatureDisplay, tooltip: 'Ссылка на ArmatureDisplay (если не задано, ищется в дочерних нодах)' })
     public armatureDisplay: dragonBones.ArmatureDisplay | null = null;
+
+    @property({ type: PathController, tooltip: 'Ссылка на PathController (если не задано, берется с этой же ноды)' })
+    public pathController: PathController | null = null;
+
+    @property({ type: RouteController, tooltip: 'Ссылка на RouteController сцены' })
+    public routeController: RouteController | null = null;
 
     @property({ type: Label, tooltip: 'Ссылка на Label уровня/силы (если не задано, ищется в дочерних нодах)' })
     public powerLabel: Label | null = null;
@@ -60,6 +68,15 @@ export class HeroController extends Component {
     private _moveTween: Tween<Node> | null = null;
 
     protected onLoad(): void {
+        if (!this.pathController) {
+            this.pathController = this.getComponent(PathController);
+        }
+
+        if (!this.routeController) {
+            const root = this.node.parent || this.node.scene;
+            this.routeController = root.getComponentInChildren(RouteController);
+        }
+
         if (!this.armatureDisplay) {
             this.armatureDisplay = this.getComponentInChildren(dragonBones.ArmatureDisplay);
         }
@@ -232,22 +249,51 @@ export class HeroController extends Component {
      * Перемещает персонажа к указанному противнику и инициирует бой
      */
     public moveToEnemy(enemy: EnemyController | Node): void {
-        console.log('moveToEnemy', enemy);
         if (!enemy) {
             return;
         }
 
-        const enemyNode = enemy instanceof Node ? enemy : enemy.node;
         const enemyController = enemy instanceof Node ? enemy.getComponent('EnemyController') as EnemyController | null : enemy;
+        if (!enemyController) {
+            return;
+        }
 
         if (this._moveTween) {
             this._moveTween.stop();
             this._moveTween = null;
         }
 
-        this.playWalk();
+        if (this.pathController && this.routeController) {
+            const route = this.routeController.getRouteToEnemy(enemyController);
+            if (route.length === 0) {
+                return;
+            }
 
-        // Переводим мировую позицию противника в локальные координаты родителя персонажа
+            this.playWalk();
+
+            this.pathController.followPath(
+                route,
+                () => {
+                    this.engageEnemy(enemyController);
+                },
+                (reachedNode: Node) => {
+                    if (this.routeController) {
+                        const index = this.routeController.getWaypointIndex(reachedNode);
+                        if (index >= 0) {
+                            this.routeController.setCurrentWaypointIndex(index);
+                        }
+                    }
+                },
+                (targetLocalX: number) => {
+                    this.faceTowards(targetLocalX);
+                }
+            );
+            return;
+        }
+
+        // Запасной fallback на прямолинейное движение, если RouteController не настроен
+        this.playWalk();
+        const enemyNode = enemyController.node;
         const targetLocalPos = new Vec3();
         if (this.node.parent) {
             this.node.parent.inverseTransformPoint(targetLocalPos, enemyNode.worldPosition);
@@ -255,10 +301,8 @@ export class HeroController extends Component {
             targetLocalPos.set(enemyNode.worldPosition);
         }
 
-        // Разворачиваем лицом к противнику
         this.faceTowards(targetLocalPos.x);
 
-        // Учитываем дистанцию остановки (если персонаж слева от врага — останавливаемся левее)
         if (this.stopDistance > 0) {
             const directionX = this.node.position.x < targetLocalPos.x ? -1 : 1;
             targetLocalPos.x += directionX * this.stopDistance;
@@ -268,43 +312,58 @@ export class HeroController extends Component {
             .to(this.moveDuration, { position: targetLocalPos })
             .call(() => {
                 this._moveTween = null;
-
-                if (enemyController) {
-                    if (this._power >= enemyController.power) {
-                        const enemyRewardPower = enemyController.power;
-
-                        // 1. Герой начинает замах атаки
-                        this.playAttack();
-
-                        // 2. В момент кульминации удара (attackHitDelay) враг реагирует смертью
-                        this.scheduleOnce(() => {
-                            enemyController.die(() => {
-                                // 3. После завершения анимации враг удаляется, а герою прибавляется сила
-                                this.addPower(enemyRewardPower);
-                            });
-                        }, this.attackHitDelay);
-                    } else {
-                        // Герой останавливается перед сильным противником
-                        this.playIdle();
-
-                        // 1. Враг наносит удар
-                        enemyController.playAttack();
-
-                        // 2. В момент удара врага герой проигрывает гибель
-                        this.scheduleOnce(() => {
-                            this.die(() => {
-                                if (this.onDefeat) {
-                                    this.onDefeat();
-                                }
-                            });
-                        }, enemyController.attackHitDelay);
-                    }
-                } else {
-                    this.playIdle();
-                    enemyNode.destroy();
-                }
+                this.engageEnemy(enemyController);
             })
             .start();
+    }
+
+    /**
+     * Инициирует боевое столкновение с противником после прибытия к нему
+     */
+    public engageEnemy(enemyController: EnemyController): void {
+        if (!enemyController || !enemyController.node.isValid) {
+            this.playIdle();
+            return;
+        }
+
+        // Поворачиваем героя лицом к противнику перед боем
+        const targetLocalPos = new Vec3();
+        if (this.node.parent) {
+            this.node.parent.inverseTransformPoint(targetLocalPos, enemyController.node.worldPosition);
+        } else {
+            targetLocalPos.set(enemyController.node.worldPosition);
+        }
+        this.faceTowards(targetLocalPos.x);
+
+        if (this._power >= enemyController.power) {
+            const enemyRewardPower = enemyController.power;
+
+            // 1. Герой начинает замах атаки
+            this.playAttack();
+
+            // 2. В момент кульминации удара (attackHitDelay) враг погибает
+            this.scheduleOnce(() => {
+                enemyController.die(() => {
+                    // 3. После завершения анимации враг удаляется, а герою прибавляется сила
+                    this.addPower(enemyRewardPower);
+                });
+            }, this.attackHitDelay);
+        } else {
+            // Герой слабее противника — останавливается
+            this.playIdle();
+
+            // 1. Враг наносит удар
+            enemyController.playAttack();
+
+            // 2. В момент удара врага герой погибает
+            this.scheduleOnce(() => {
+                this.die(() => {
+                    if (this.onDefeat) {
+                        this.onDefeat();
+                    }
+                });
+            }, enemyController.attackHitDelay);
+        }
     }
 
     /**
