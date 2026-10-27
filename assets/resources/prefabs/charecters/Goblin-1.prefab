@@ -405,6 +405,8 @@
       "__id__": 17
     },
     "hero": null,
+    "attackPoint": null,
+    "routeIndex": 0,
     "armatureDisplay": {
       "__id__": 5
     },
@@ -414,6 +416,11 @@
     "power": 10,
     "idleAnimationName": "idle",
     "idleTimeScale": 1,
+    "dieAnimationName": "die",
+    "dieTimeScale": 1,
+    "attackAnimationName": "attack",
+    "attackTimeScale": 1,
+    "attackHitDelay": 0.25,
     "_id": ""
   },
   {
@@ -429,6 +436,7 @@
       "__id__": 0
     },
     "fileId": "3ew6T6OgJM+q1QYWyGObAp",
+    "instance": null,
     "targetOverrides": null
   }
 ]
