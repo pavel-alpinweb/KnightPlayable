@@ -1,4 +1,4 @@
-import { _decorator, Component, Node, Label, Sprite, tween, Vec3, Tween } from 'cc';
+import { _decorator, Component, Node, Label, Sprite, tween, Vec3, Tween, isValid } from 'cc';
 import { HeroController } from './HeroController';
 import { PlayableManager } from './PlayableManager';
 const { ccclass, property } = _decorator;
@@ -34,7 +34,7 @@ export class WeaponController extends Component {
             this.weaponSprite = this.getComponentInChildren(Sprite);
         }
 
-        if (this.weaponSprite) {
+        if (this.weaponSprite && this.weaponSprite.node) {
             this._initialSpritePos.set(this.weaponSprite.node.position);
         }
 
@@ -47,7 +47,6 @@ export class WeaponController extends Component {
     }
 
     protected onEnable(): void {
-        // Проверяем статус PlayableManager: если оверлей закрыт / игра активна, запускаем твин
         const playableManager = this.node.scene?.getComponentInChildren(PlayableManager);
         if (!playableManager || playableManager.isGameStarted) {
             this.startFloatingTween();
@@ -55,19 +54,21 @@ export class WeaponController extends Component {
     }
 
     protected onDisable(): void {
-        this.stopFloatingTween();
+        this.stopFloatingTween(false);
     }
 
     protected onDestroy(): void {
-        this.stopFloatingTween();
-        this.node.off(Node.EventType.TOUCH_END, this.onClick, this);
+        this.stopFloatingTween(false);
+        if (isValid(this.node)) {
+            this.node.off(Node.EventType.TOUCH_END, this.onClick, this);
+        }
     }
 
     /**
      * Запускает твин покачивания спрайта оружия вверх и вниз
      */
     public startFloatingTween(): void {
-        if (!this.weaponSprite || this._floatTween) {
+        if (!this.weaponSprite || !isValid(this.weaponSprite.node) || this._floatTween) {
             return;
         }
 
@@ -90,15 +91,15 @@ export class WeaponController extends Component {
     }
 
     /**
-     * Останавливает твин и возвращает спрайт в исходную позицию
+     * Останавливает твин и опционально возвращает спрайт в исходную позицию
      */
-    public stopFloatingTween(): void {
+    public stopFloatingTween(resetPosition: boolean = true): void {
         if (this._floatTween) {
             this._floatTween.stop();
             this._floatTween = null;
         }
 
-        if (this.weaponSprite && this.weaponSprite.node.isValid) {
+        if (resetPosition && this.weaponSprite && isValid(this.weaponSprite) && isValid(this.weaponSprite.node)) {
             this.weaponSprite.node.setPosition(this._initialSpritePos);
         }
     }
@@ -112,7 +113,7 @@ export class WeaponController extends Component {
     }
 
     private updatePowerLabel(): void {
-        if (this.powerLabel) {
+        if (this.powerLabel && isValid(this.powerLabel)) {
             const prefix = this.showPlusSign && this.power > 0 ? '+' : '';
             this.powerLabel.string = `${prefix}${this.power}`;
         }
@@ -128,7 +129,9 @@ export class WeaponController extends Component {
      * Удаляет ноду оружия со сцены
      */
     public removeWeapon(): void {
-        this.stopFloatingTween();
-        this.node.destroy();
+        this.stopFloatingTween(false);
+        if (isValid(this.node)) {
+            this.node.destroy();
+        }
     }
 }
