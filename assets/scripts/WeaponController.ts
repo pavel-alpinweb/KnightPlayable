@@ -1,11 +1,15 @@
-import { _decorator, Component, Node, Label } from 'cc';
+import { _decorator, Component, Node, Label, Sprite, tween, Vec3, Tween } from 'cc';
 import { HeroController } from './HeroController';
+import { PlayableManager } from './PlayableManager';
 const { ccclass, property } = _decorator;
 
 @ccclass('WeaponController')
 export class WeaponController extends Component {
     @property({ type: HeroController, tooltip: 'Ссылка на HeroController' })
     public hero: HeroController | null = null;
+
+    @property({ type: Sprite, tooltip: 'Ссылка на Sprite оружия (если не задан, ищется в дочерних нодах)' })
+    public weaponSprite: Sprite | null = null;
 
     @property({ type: Label, tooltip: 'Ссылка на Label бонуса силы (если не задан, ищется в дочерних нодах)' })
     public powerLabel: Label | null = null;
@@ -16,7 +20,24 @@ export class WeaponController extends Component {
     @property({ tooltip: 'Показывать ли знак плюс перед значением (например, +5)' })
     public showPlusSign: boolean = true;
 
+    @property({ tooltip: 'Смещение спрайта оружия вверх/вниз при парении' })
+    public floatDistance: number = 15;
+
+    @property({ tooltip: 'Время движения в одну сторону (секунды)' })
+    public floatDuration: number = 0.8;
+
+    private _floatTween: Tween<Node> | null = null;
+    private _initialSpritePos: Vec3 = new Vec3();
+
     protected onLoad(): void {
+        if (!this.weaponSprite) {
+            this.weaponSprite = this.getComponentInChildren(Sprite);
+        }
+
+        if (this.weaponSprite) {
+            this._initialSpritePos.set(this.weaponSprite.node.position);
+        }
+
         if (!this.powerLabel) {
             this.powerLabel = this.getComponentInChildren(Label);
         }
@@ -25,8 +46,61 @@ export class WeaponController extends Component {
         this.node.on(Node.EventType.TOUCH_END, this.onClick, this);
     }
 
+    protected onEnable(): void {
+        // Проверяем статус PlayableManager: если оверлей закрыт / игра активна, запускаем твин
+        const playableManager = this.node.scene?.getComponentInChildren(PlayableManager);
+        if (!playableManager || playableManager.isGameStarted) {
+            this.startFloatingTween();
+        }
+    }
+
+    protected onDisable(): void {
+        this.stopFloatingTween();
+    }
+
     protected onDestroy(): void {
+        this.stopFloatingTween();
         this.node.off(Node.EventType.TOUCH_END, this.onClick, this);
+    }
+
+    /**
+     * Запускает твин покачивания спрайта оружия вверх и вниз
+     */
+    public startFloatingTween(): void {
+        if (!this.weaponSprite || this._floatTween) {
+            return;
+        }
+
+        const spriteNode = this.weaponSprite.node;
+        this._initialSpritePos.set(spriteNode.position);
+
+        const targetPos = new Vec3(
+            this._initialSpritePos.x,
+            this._initialSpritePos.y + this.floatDistance,
+            this._initialSpritePos.z
+        );
+
+        this._floatTween = tween(spriteNode)
+            .to(this.floatDuration, { position: targetPos }, { easing: 'sineInOut' })
+            .to(this.floatDuration, { position: this._initialSpritePos }, { easing: 'sineInOut' })
+            .union()
+            .repeatForever();
+
+        this._floatTween.start();
+    }
+
+    /**
+     * Останавливает твин и возвращает спрайт в исходную позицию
+     */
+    public stopFloatingTween(): void {
+        if (this._floatTween) {
+            this._floatTween.stop();
+            this._floatTween = null;
+        }
+
+        if (this.weaponSprite && this.weaponSprite.node.isValid) {
+            this.weaponSprite.node.setPosition(this._initialSpritePos);
+        }
     }
 
     /**
@@ -54,6 +128,7 @@ export class WeaponController extends Component {
      * Удаляет ноду оружия со сцены
      */
     public removeWeapon(): void {
+        this.stopFloatingTween();
         this.node.destroy();
     }
 }
