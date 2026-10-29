@@ -269,8 +269,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 44.4921875,
-      "height": 100.8
+      "width": 65.615234375,
+      "height": 136
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -300,18 +300,18 @@
     "_dstBlendFactor": 4,
     "_color": {
       "__type__": "cc.Color",
-      "r": 255,
-      "g": 102,
-      "b": 0,
+      "r": 76,
+      "g": 142,
+      "b": 1,
       "a": 255
     },
     "_string": "5",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 80,
-    "_fontSize": 80,
+    "_actualFontSize": 100,
+    "_fontSize": 100,
     "_fontFamily": "Arial",
-    "_lineHeight": 80,
+    "_lineHeight": 100,
     "_overflow": 0,
     "_enableWrapText": true,
     "_font": null,
@@ -322,29 +322,29 @@
     "_isUnderline": false,
     "_underlineHeight": 2,
     "_cacheMode": 0,
-    "_enableOutline": false,
+    "_enableOutline": true,
     "_outlineColor": {
       "__type__": "cc.Color",
-      "r": 0,
-      "g": 0,
-      "b": 0,
-      "a": 255
+      "r": 19,
+      "g": 19,
+      "b": 19,
+      "a": 179
     },
-    "_outlineWidth": 2,
-    "_enableShadow": false,
+    "_outlineWidth": 5,
+    "_enableShadow": true,
     "_shadowColor": {
       "__type__": "cc.Color",
-      "r": 0,
-      "g": 0,
-      "b": 0,
-      "a": 255
+      "r": 19,
+      "g": 19,
+      "b": 19,
+      "a": 178
     },
     "_shadowOffset": {
       "__type__": "cc.Vec2",
-      "x": 2,
-      "y": 2
+      "x": 5,
+      "y": -5
     },
-    "_shadowBlur": 2,
+    "_shadowBlur": 5,
     "_id": ""
   },
   {
@@ -407,6 +407,9 @@
     "armatureDisplay": {
       "__id__": 5
     },
+    "pathController": null,
+    "routeController": null,
+    "cameraFollow": null,
     "powerLabel": {
       "__id__": 11
     },
@@ -415,6 +418,11 @@
     "idleTimeScale": 1,
     "walkAnimationName": "walking",
     "walkTimeScale": 1,
+    "attackAnimationName": "attack",
+    "attackTimeScale": 1,
+    "attackHitDelay": 0.25,
+    "dieAnimationName": "die",
+    "dieTimeScale": 1,
     "moveDuration": 2,
     "stopDistance": 0,
     "isFacingRightDefault": true,
@@ -433,6 +441,7 @@
       "__id__": 0
     },
     "fileId": "dd/gFkD1tNYbSEO6xP/uhc",
+    "instance": null,
     "targetOverrides": null
   }
 ]

@@ -266,8 +266,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 44.4921875,
-      "height": 100.8
+      "width": 54.4921875,
+      "height": 110.8
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -297,9 +297,9 @@
     "_dstBlendFactor": 4,
     "_color": {
       "__type__": "cc.Color",
-      "r": 255,
-      "g": 102,
-      "b": 0,
+      "r": 76,
+      "g": 142,
+      "b": 1,
       "a": 255
     },
     "_string": "5",
@@ -319,29 +319,29 @@
     "_isUnderline": false,
     "_underlineHeight": 2,
     "_cacheMode": 0,
-    "_enableOutline": false,
+    "_enableOutline": true,
     "_outlineColor": {
       "__type__": "cc.Color",
-      "r": 0,
-      "g": 0,
-      "b": 0,
-      "a": 255
+      "r": 19,
+      "g": 19,
+      "b": 19,
+      "a": 178
     },
-    "_outlineWidth": 2,
-    "_enableShadow": false,
+    "_outlineWidth": 5,
+    "_enableShadow": true,
     "_shadowColor": {
       "__type__": "cc.Color",
-      "r": 0,
-      "g": 0,
-      "b": 0,
-      "a": 255
+      "r": 19,
+      "g": 19,
+      "b": 19,
+      "a": 178
     },
     "_shadowOffset": {
       "__type__": "cc.Vec2",
-      "x": 2,
-      "y": 2
+      "x": 5,
+      "y": -5
     },
-    "_shadowBlur": 2,
+    "_shadowBlur": 5,
     "_id": ""
   },
   {
@@ -402,11 +402,14 @@
       "__id__": 17
     },
     "hero": null,
+    "weaponSprite": null,
     "powerLabel": {
       "__id__": 11
     },
     "power": 10,
     "showPlusSign": true,
+    "floatDistance": 15,
+    "floatDuration": 0.8,
     "_id": ""
   },
   {
@@ -422,6 +425,7 @@
       "__id__": 0
     },
     "fileId": "042wv4jsNO1qt3S9dmmp0s",
+    "instance": null,
     "targetOverrides": null
   }
 ]

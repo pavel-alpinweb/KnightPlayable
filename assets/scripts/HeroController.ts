@@ -24,6 +24,15 @@ export class HeroController extends Component {
     @property({ type: Label, tooltip: 'Ссылка на Label уровня/силы (если не задано, ищется в дочерних нодах)' })
     public powerLabel: Label | null = null;
 
+    @property({ tooltip: 'Длительность анимации счетчика силы в секундах' })
+    public powerCountDuration: number = 0.5;
+
+    @property({ tooltip: 'Коэффициент увеличения размера Label при росте силы (1.0 = без увеличения)' })
+    public powerScaleMultiplier: number = 1.3;
+
+    @property({ tooltip: 'Длительность возвращения размера Label в исходное состояние (секунды)' })
+    public powerScaleReturnDuration: number = 0.15;
+
     @property({ tooltip: 'Начальный уровень / сила героя' })
     public initialPower: number = 10;
 
@@ -48,8 +57,8 @@ export class HeroController extends Component {
     @property({ tooltip: 'Задержка до контакта удара в секундах (момент опускания меча на врага)' })
     public attackHitDelay: number = 0.25;
 
-    @property({ tooltip: 'Имя анимации гибели (die)' })
-    public dieAnimationName: string = 'die';
+    @property({ tooltip: 'Имя анимации гибели (dying)' })
+    public dieAnimationName: string = 'dying';
 
     @property({ tooltip: 'Скорость анимации гибели (1.0 = нормальная скорость)' })
     public dieTimeScale: number = 1.0;
@@ -70,6 +79,9 @@ export class HeroController extends Component {
 
     private _power: number = 0;
     private _moveTween: Tween<Node> | null = null;
+    private _powerTween: Tween<{ value: number }> | null = null;
+    private _labelScaleTween: Tween<Node> | null = null;
+    private _initialLabelScale: Vec3 = new Vec3(1, 1, 1);
 
     protected onLoad(): void {
         if (!this.pathController) {
@@ -98,7 +110,11 @@ export class HeroController extends Component {
             this.powerLabel = this.getComponentInChildren(Label);
         }
 
-        this.setPower(this.initialPower);
+        if (this.powerLabel && this.powerLabel.node) {
+            this._initialLabelScale.set(this.powerLabel.node.scale);
+        }
+
+        this.setPower(this.initialPower, false);
         this.setWeaponVisible(false);
     }
 
@@ -108,12 +124,73 @@ export class HeroController extends Component {
 
     /**
      * Устанавливает текущую силу героя и обновляет Label
+     * @param value Новое значение силы
+     * @param animated Запускать ли анимацию счетчика (по умолчанию true)
      */
-    public setPower(value: number): void {
+    public setPower(value: number, animated: boolean = true): void {
+        const startValue = this._power;
         this._power = value;
-        if (this.powerLabel) {
-            this.powerLabel.string = `${this._power}`;
+
+        if (this._powerTween) {
+            this._powerTween.stop();
+            this._powerTween = null;
         }
+
+        if (this._labelScaleTween) {
+            this._labelScaleTween.stop();
+            this._labelScaleTween = null;
+        }
+
+        if (!this.powerLabel) {
+            return;
+        }
+
+        if (!animated || this.powerCountDuration <= 0 || startValue === value) {
+            this.powerLabel.string = `${this._power}`;
+            this.powerLabel.node.setScale(this._initialLabelScale);
+            return;
+        }
+
+        // Анимация раздувания и возврата размера Label
+        const labelNode = this.powerLabel.node;
+        const targetScale = new Vec3(
+            this._initialLabelScale.x * this.powerScaleMultiplier,
+            this._initialLabelScale.y * this.powerScaleMultiplier,
+            this._initialLabelScale.z
+        );
+
+        const growDuration = Math.min(0.12, this.powerCountDuration * 0.3);
+        const holdDuration = Math.max(0, this.powerCountDuration - growDuration);
+
+        this._labelScaleTween = tween(labelNode)
+            .to(growDuration, { scale: targetScale }, { easing: 'quadOut' })
+            .delay(holdDuration)
+            .to(this.powerScaleReturnDuration, { scale: this._initialLabelScale }, { easing: 'backOut' })
+            .call(() => {
+                this._labelScaleTween = null;
+            })
+            .start();
+
+        const state = { value: startValue };
+        this._powerTween = tween(state)
+            .to(
+                this.powerCountDuration,
+                { value: this._power },
+                {
+                    onUpdate: (target?: { value: number }) => {
+                        if (this.powerLabel && target) {
+                            this.powerLabel.string = `${Math.round(target.value)}`;
+                        }
+                    },
+                }
+            )
+            .call(() => {
+                if (this.powerLabel) {
+                    this.powerLabel.string = `${this._power}`;
+                }
+                this._powerTween = null;
+            })
+            .start();
     }
 
     /**
