@@ -357,6 +357,9 @@ export class HeroController extends Component {
 
             this.playWalk();
 
+            // Подсвечиваем предстоящий маршрут желтым
+            this.routeController.highlightRoute(route);
+
             this.pathController.followPath(
                 route,
                 () => {
@@ -368,6 +371,8 @@ export class HeroController extends Component {
                         if (index >= 0) {
                             this.routeController.setCurrentWaypointIndex(index);
                         }
+                        // Отмечаем достигнутую точку зелёным цветом
+                        this.routeController.markWaypointCompleted(reachedNode);
                     }
                 },
                 (targetLocalX: number) => {
