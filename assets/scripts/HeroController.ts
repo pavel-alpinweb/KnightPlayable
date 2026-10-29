@@ -3,6 +3,7 @@ import type { WeaponController } from './WeaponController';
 import type { EnemyController } from './EnemyController';
 import { PathController } from './PathController';
 import { RouteController } from './RouteController';
+import { CameraFollow2D } from './CameraFollow2D';
 const { ccclass, property, requireComponent } = _decorator;
 
 @ccclass('HeroController')
@@ -16,6 +17,9 @@ export class HeroController extends Component {
 
     @property({ type: RouteController, tooltip: 'Ссылка на RouteController сцены' })
     public routeController: RouteController | null = null;
+
+    @property({ type: CameraFollow2D, tooltip: 'Ссылка на CameraFollow2D (если не задано, ищется в сцене)' })
+    public cameraFollow: CameraFollow2D | null = null;
 
     @property({ type: Label, tooltip: 'Ссылка на Label уровня/силы (если не задано, ищется в дочерних нодах)' })
     public powerLabel: Label | null = null;
@@ -75,6 +79,11 @@ export class HeroController extends Component {
         if (!this.routeController) {
             const root = this.node.parent || this.node.scene;
             this.routeController = root.getComponentInChildren(RouteController);
+        }
+
+        if (!this.cameraFollow) {
+            const root = this.node.scene || this.node.parent;
+            this.cameraFollow = root ? root.getComponentInChildren(CameraFollow2D) : null;
         }
 
         if (!this.armatureDisplay) {
@@ -341,8 +350,11 @@ export class HeroController extends Component {
             // 1. Герой начинает замах атаки
             this.playAttack();
 
-            // 2. В момент кульминации удара (attackHitDelay) враг погибает
+            // 2. В момент кульминации удара (attackHitDelay) трясем камеру и враг погибает
             this.scheduleOnce(() => {
+                if (this.cameraFollow) {
+                    this.cameraFollow.shake();
+                }
                 enemyController.die(() => {
                     // 3. После завершения анимации враг удаляется, а герою прибавляется сила
                     this.addPower(enemyRewardPower);
@@ -355,8 +367,11 @@ export class HeroController extends Component {
             // 1. Враг наносит удар
             enemyController.playAttack();
 
-            // 2. В момент удара врага герой погибает
+            // 2. В момент удара врага трясем камеру и герой погибает
             this.scheduleOnce(() => {
+                if (this.cameraFollow) {
+                    this.cameraFollow.shake();
+                }
                 this.die(() => {
                     if (this.onDefeat) {
                         this.onDefeat();
