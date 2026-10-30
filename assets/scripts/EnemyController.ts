@@ -1,12 +1,16 @@
-import { _decorator, Component, dragonBones, Node, Label } from 'cc';
+import { _decorator, Component, dragonBones, Node, Label, Vec3, UITransform } from 'cc';
 import { HeroController } from './HeroController';
 import type { EnemiesManager } from './EnemiesManager';
+import { EffectsController } from './EffectsController';
 const { ccclass, property } = _decorator;
 
 @ccclass('EnemyController')
 export class EnemyController extends Component {
     @property({ type: HeroController, tooltip: 'Ссылка на HeroController' })
     public hero: HeroController | null = null;
+
+    @property({ type: EffectsController, tooltip: 'Ссылка на EffectsController (если не задано, ищется в сцене)' })
+    public effectsController: EffectsController | null = null;
 
     @property({ type: Node, tooltip: 'Точка атаки, куда должен подойти герой перед этим врагом' })
     public attackPoint: Node | null = null;
@@ -44,14 +48,16 @@ export class EnemyController extends Component {
     @property({ tooltip: 'Задержка до контакта удара в секундах (момент удара по герою)' })
     public attackHitDelay: number = 0.25;
 
-    protected onLoad(): void {
-            if (!this.attackPoint) {
-                this.attackPoint = this.node.getChildByName('AttackPoint');
-            }
+    private _hasDied: boolean = false;
 
-            if (!this.armatureDisplay) {
-                this.armatureDisplay = this.getComponentInChildren(dragonBones.ArmatureDisplay);
-            }
+    protected onLoad(): void {
+        if (!this.attackPoint) {
+            this.attackPoint = this.node.getChildByName('AttackPoint');
+        }
+
+        if (!this.armatureDisplay) {
+            this.armatureDisplay = this.getComponentInChildren(dragonBones.ArmatureDisplay);
+        }
 
         if (this.armatureDisplay) {
             this.armatureDisplay.animationCacheMode = dragonBones.ArmatureDisplay.AnimationCacheMode.REALTIME;
@@ -59,6 +65,11 @@ export class EnemyController extends Component {
 
         if (!this.powerLabel) {
             this.powerLabel = this.getComponentInChildren(Label);
+        }
+
+        if (!this.effectsController) {
+            const root = this.node.scene || this.node.parent;
+            this.effectsController = root ? root.getComponentInChildren(EffectsController) : null;
         }
 
         this.setPower(this.power);
@@ -124,10 +135,33 @@ export class EnemyController extends Component {
     }
 
     /**
+     * Возвращает мировые координаты визуального центра врага
+     */
+    public getVisualCenterWorldPosition(): Vec3 {
+        const visualNode = this.armatureDisplay ? this.armatureDisplay.node : this.node;
+        const transform = visualNode.getComponent(UITransform);
+        if (transform && transform.contentSize.height > 0) {
+            const localCenter = new Vec3(
+                (0.5 - transform.anchorX) * transform.contentSize.width,
+                (0.5 - transform.anchorY) * transform.contentSize.height,
+                0
+            );
+            return transform.convertToWorldSpaceAR(localCenter);
+        }
+
+        return visualNode.worldPosition.clone();
+    }
+
+    /**
      * Воспроизводит анимацию гибели 1 раз и по окончании удаляет ноду
      * @param onComplete callback по завершению анимации (перед destroy)
      */
     public die(onComplete?: () => void): void {
+        if (this._hasDied) {
+            return;
+        }
+        this._hasDied = true;
+
         // Отключаем тач-события, чтобы по умирающему врагу нельзя было кликать
         this.node.off(Node.EventType.TOUCH_END, this.onClick, this);
 
@@ -140,19 +174,14 @@ export class EnemyController extends Component {
         const enemiesManager = this.node.parent?.getComponent('EnemiesManager') as EnemiesManager | null
             || this.node.scene.getComponentInChildren('EnemiesManager') as EnemiesManager | null;
 
-        if (!this.armatureDisplay) {
-            if (enemiesManager) {
-                enemiesManager.onEnemyDied(this);
+        // Фиксируем мировые координаты визуального центра до удаления ноды
+        const deathPosition = this.getVisualCenterWorldPosition();
+
+        const triggerDeathEffectAndCleanup = () => {
+            if (this.effectsController) {
+                this.effectsController.playEnemyDeath(deathPosition);
             }
-            if (onComplete) onComplete();
-            this.node.destroy();
-            return;
-        }
 
-        const onAnimComplete = () => {
-            this.armatureDisplay?.removeEventListener(dragonBones.EventObject.COMPLETE, onAnimComplete, this);
-
-            // Вызываем onEnemyDied только после завершения анимации гибели
             if (enemiesManager) {
                 enemiesManager.onEnemyDied(this);
             }
@@ -160,7 +189,18 @@ export class EnemyController extends Component {
             if (onComplete) {
                 onComplete();
             }
+
             this.node.destroy();
+        };
+
+        if (!this.armatureDisplay) {
+            triggerDeathEffectAndCleanup();
+            return;
+        }
+
+        const onAnimComplete = () => {
+            this.armatureDisplay?.removeEventListener(dragonBones.EventObject.COMPLETE, onAnimComplete, this);
+            triggerDeathEffectAndCleanup();
         };
 
         this.armatureDisplay.timeScale = this.dieTimeScale;

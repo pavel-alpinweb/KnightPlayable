@@ -1,9 +1,10 @@
-import { _decorator, Component, dragonBones, Tween, tween, Node, Vec3, Label } from 'cc';
+import { _decorator, Component, dragonBones, Tween, tween, Node, Vec3, Label, UITransform } from 'cc';
 import type { WeaponController } from './WeaponController';
 import type { EnemyController } from './EnemyController';
 import { PathController } from './PathController';
 import { RouteController } from './RouteController';
 import { CameraFollow2D } from './CameraFollow2D';
+import { EffectsController } from './EffectsController';
 const { ccclass, property, requireComponent } = _decorator;
 
 @ccclass('HeroController')
@@ -20,6 +21,9 @@ export class HeroController extends Component {
 
     @property({ type: CameraFollow2D, tooltip: 'Ссылка на CameraFollow2D (если не задано, ищется в сцене)' })
     public cameraFollow: CameraFollow2D | null = null;
+
+    @property({ type: EffectsController, tooltip: 'Ссылка на EffectsController (если не задано, ищется в сцене)' })
+    public effectsController: EffectsController | null = null;
 
     @property({ type: Label, tooltip: 'Ссылка на Label уровня/силы (если не задано, ищется в дочерних нодах)' })
     public powerLabel: Label | null = null;
@@ -98,6 +102,11 @@ export class HeroController extends Component {
             this.cameraFollow = root ? root.getComponentInChildren(CameraFollow2D) : null;
         }
 
+        if (!this.effectsController) {
+            const root = this.node.scene || this.node.parent;
+            this.effectsController = root ? root.getComponentInChildren(EffectsController) : null;
+        }
+
         if (!this.armatureDisplay) {
             this.armatureDisplay = this.getComponentInChildren(dragonBones.ArmatureDisplay);
         }
@@ -123,6 +132,24 @@ export class HeroController extends Component {
     }
 
     /**
+     * Возвращает мировые координаты визуального центра героя
+     */
+    public getVisualCenterWorldPosition(): Vec3 {
+        const visualNode = this.armatureDisplay ? this.armatureDisplay.node : this.node;
+        const transform = visualNode.getComponent(UITransform);
+        if (transform && transform.contentSize.height > 0) {
+            const localCenter = new Vec3(
+                (0.5 - transform.anchorX) * transform.contentSize.width,
+                (0.5 - transform.anchorY) * transform.contentSize.height,
+                0
+            );
+            return transform.convertToWorldSpaceAR(localCenter);
+        }
+
+        return visualNode.worldPosition.clone();
+    }
+
+    /**
      * Устанавливает текущую силу героя и обновляет Label
      * @param value Новое значение силы
      * @param animated Запускать ли анимацию счетчика (по умолчанию true)
@@ -139,6 +166,11 @@ export class HeroController extends Component {
         if (this._labelScaleTween) {
             this._labelScaleTween.stop();
             this._labelScaleTween = null;
+        }
+
+        // Эффект LevelUp воспроизводится только тогда, когда сила/уровень действительно повысились
+        if (value > startValue && animated && this.effectsController) {
+            this.effectsController.playLevelUp(this.getVisualCenterWorldPosition());
         }
 
         if (!this.powerLabel) {
