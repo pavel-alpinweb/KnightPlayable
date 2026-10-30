@@ -266,7 +266,7 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 54.4921875,
+      "width": 51.91999816894531,
       "height": 110.8
     },
     "_anchorPoint": {
@@ -297,9 +297,9 @@
     "_dstBlendFactor": 4,
     "_color": {
       "__type__": "cc.Color",
-      "r": 76,
-      "g": 142,
-      "b": 1,
+      "r": 255,
+      "g": 204,
+      "b": 57,
       "a": 255
     },
     "_string": "5",
@@ -307,12 +307,15 @@
     "_verticalAlign": 1,
     "_actualFontSize": 80,
     "_fontSize": 80,
-    "_fontFamily": "Arial",
+    "_fontFamily": "Lilita One",
     "_lineHeight": 80,
     "_overflow": 0,
     "_enableWrapText": true,
-    "_font": null,
-    "_isSystemFontUsed": true,
+    "_font": {
+      "__uuid__": "f48682a9-cd72-4159-89f0-00f176e4e0f8",
+      "__expectedType__": "cc.TTFFont"
+    },
+    "_isSystemFontUsed": false,
     "_spacingX": 0,
     "_isItalic": false,
     "_isBold": true,
@@ -322,26 +325,26 @@
     "_enableOutline": true,
     "_outlineColor": {
       "__type__": "cc.Color",
-      "r": 19,
-      "g": 19,
-      "b": 19,
-      "a": 178
+      "r": 59,
+      "g": 39,
+      "b": 15,
+      "a": 255
     },
     "_outlineWidth": 5,
     "_enableShadow": true,
     "_shadowColor": {
       "__type__": "cc.Color",
-      "r": 19,
-      "g": 19,
-      "b": 19,
+      "r": 59,
+      "g": 39,
+      "b": 15,
       "a": 178
     },
     "_shadowOffset": {
       "__type__": "cc.Vec2",
-      "x": 5,
-      "y": -5
+      "x": 3,
+      "y": -4
     },
-    "_shadowBlur": 5,
+    "_shadowBlur": 2,
     "_id": ""
   },
   {

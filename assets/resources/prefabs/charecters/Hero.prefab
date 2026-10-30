@@ -269,8 +269,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 65.615234375,
-      "height": 136
+      "width": 57.15998840332031,
+      "height": 123.4
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -300,22 +300,25 @@
     "_dstBlendFactor": 4,
     "_color": {
       "__type__": "cc.Color",
-      "r": 76,
-      "g": 142,
-      "b": 1,
+      "r": 130,
+      "g": 221,
+      "b": 37,
       "a": 255
     },
     "_string": "5",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 100,
-    "_fontSize": 100,
-    "_fontFamily": "Arial",
-    "_lineHeight": 100,
+    "_actualFontSize": 90,
+    "_fontSize": 90,
+    "_fontFamily": "Lilita One",
+    "_lineHeight": 90,
     "_overflow": 0,
     "_enableWrapText": true,
-    "_font": null,
-    "_isSystemFontUsed": true,
+    "_font": {
+      "__uuid__": "f48682a9-cd72-4159-89f0-00f176e4e0f8",
+      "__expectedType__": "cc.TTFFont"
+    },
+    "_isSystemFontUsed": false,
     "_spacingX": 0,
     "_isItalic": false,
     "_isBold": true,
@@ -325,26 +328,26 @@
     "_enableOutline": true,
     "_outlineColor": {
       "__type__": "cc.Color",
-      "r": 19,
-      "g": 19,
-      "b": 19,
-      "a": 179
+      "r": 20,
+      "g": 32,
+      "b": 13,
+      "a": 255
     },
     "_outlineWidth": 5,
     "_enableShadow": true,
     "_shadowColor": {
       "__type__": "cc.Color",
-      "r": 19,
-      "g": 19,
-      "b": 19,
+      "r": 20,
+      "g": 32,
+      "b": 13,
       "a": 178
     },
     "_shadowOffset": {
       "__type__": "cc.Vec2",
-      "x": 5,
-      "y": -5
+      "x": 3,
+      "y": -4
     },
-    "_shadowBlur": 5,
+    "_shadowBlur": 2,
     "_id": ""
   },
   {
@@ -410,9 +413,13 @@
     "pathController": null,
     "routeController": null,
     "cameraFollow": null,
+    "effectsController": null,
     "powerLabel": {
       "__id__": 11
     },
+    "powerCountDuration": 0.5,
+    "powerScaleMultiplier": 1.3,
+    "powerScaleReturnDuration": 0.15,
     "initialPower": 5,
     "idleAnimationName": "idle",
     "idleTimeScale": 1,
@@ -426,6 +433,7 @@
     "moveDuration": 2,
     "stopDistance": 0,
     "isFacingRightDefault": true,
+    "victoryDelay": 0.4,
     "_id": ""
   },
   {

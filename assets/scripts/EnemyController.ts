@@ -170,20 +170,12 @@ export class EnemyController extends Component {
             this.powerLabel.node.active = false;
         }
 
-        // Получаем EnemiesManager заранее до удаления ноды из иерархии
-        const enemiesManager = this.node.parent?.getComponent('EnemiesManager') as EnemiesManager | null
-            || this.node.scene.getComponentInChildren('EnemiesManager') as EnemiesManager | null;
-
         // Фиксируем мировые координаты визуального центра до удаления ноды
         const deathPosition = this.getVisualCenterWorldPosition();
 
         const triggerDeathEffectAndCleanup = () => {
             if (this.effectsController) {
                 this.effectsController.playEnemyDeath(deathPosition);
-            }
-
-            if (enemiesManager) {
-                enemiesManager.onEnemyDied(this);
             }
 
             if (onComplete) {

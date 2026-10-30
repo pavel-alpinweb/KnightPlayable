@@ -1,6 +1,7 @@
 import { _decorator, Component, dragonBones, Tween, tween, Node, Vec3, Label, UITransform } from 'cc';
 import type { WeaponController } from './WeaponController';
 import type { EnemyController } from './EnemyController';
+import type { EnemiesManager } from './EnemiesManager';
 import { PathController } from './PathController';
 import { RouteController } from './RouteController';
 import { CameraFollow2D } from './CameraFollow2D';
@@ -75,6 +76,9 @@ export class HeroController extends Component {
 
     @property({ tooltip: 'Смотрит ли персонаж вправо по умолчанию (при положительном scale.x)' })
     public isFacingRightDefault: boolean = true;
+
+    @property({ tooltip: 'Пауза перед фиксацией победы после окончания анимации силы (секунды)' })
+    public victoryDelay: number = 0.4;
 
     /** Callback при поражении героя (вызывается после завершения анимации смерти) */
     public onDefeat: (() => void) | null = () => {
@@ -153,8 +157,9 @@ export class HeroController extends Component {
      * Устанавливает текущую силу героя и обновляет Label
      * @param value Новое значение силы
      * @param animated Запускать ли анимацию счетчика (по умолчанию true)
+     * @param onComplete Вызывается по окончании анимации счетчика силы
      */
-    public setPower(value: number, animated: boolean = true): void {
+    public setPower(value: number, animated: boolean = true, onComplete?: () => void): void {
         const startValue = this._power;
         this._power = value;
 
@@ -174,12 +179,14 @@ export class HeroController extends Component {
         }
 
         if (!this.powerLabel) {
+            if (onComplete) onComplete();
             return;
         }
 
         if (!animated || this.powerCountDuration <= 0 || startValue === value) {
             this.powerLabel.string = `${this._power}`;
             this.powerLabel.node.setScale(this._initialLabelScale);
+            if (onComplete) onComplete();
             return;
         }
 
@@ -221,15 +228,20 @@ export class HeroController extends Component {
                     this.powerLabel.string = `${this._power}`;
                 }
                 this._powerTween = null;
+                if (onComplete) {
+                    onComplete();
+                }
             })
             .start();
     }
 
     /**
      * Изменяет текущую силу героя на дельту
+     * @param delta Величина изменения силы
+     * @param onComplete Вызывается по окончании анимации счетчика силы
      */
-    public addPower(delta: number): void {
-        this.setPower(this._power + delta);
+    public addPower(delta: number, onComplete?: () => void): void {
+        this.setPower(this._power + delta, true, onComplete);
     }
 
     /**
@@ -470,8 +482,17 @@ export class HeroController extends Component {
                     this.cameraFollow.shake();
                 }
                 enemyController.die(() => {
-                    // 3. После завершения анимации враг удаляется, а герою прибавляется сила
-                    this.addPower(enemyRewardPower);
+                    // 3. После завершения анимации гибели врага запускаем анимацию прибавки силы героя
+                    this.addPower(enemyRewardPower, () => {
+                        // 4. После полного завершения анимации счетчика силы ждем victoryDelay перед регистрацией победы
+                        this.scheduleOnce(() => {
+                            const enemiesManager = this.node.scene?.getComponentInChildren('EnemiesManager') as EnemiesManager | null
+                                || this.node.parent?.getComponentInChildren('EnemiesManager') as EnemiesManager | null;
+                            if (enemiesManager) {
+                                enemiesManager.onEnemyDied(enemyController);
+                            }
+                        }, this.victoryDelay);
+                    });
                 });
             }, this.attackHitDelay);
         } else {
