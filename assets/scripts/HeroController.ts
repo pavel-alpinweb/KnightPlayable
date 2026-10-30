@@ -6,6 +6,7 @@ import { PathController } from './PathController';
 import { RouteController } from './RouteController';
 import { CameraFollow2D } from './CameraFollow2D';
 import { EffectsController } from './EffectsController';
+import {AudioController} from "./AudioController";
 const { ccclass, property, requireComponent } = _decorator;
 
 @ccclass('HeroController')
@@ -80,6 +81,9 @@ export class HeroController extends Component {
     @property({ tooltip: 'Пауза перед фиксацией победы после окончания анимации силы (секунды)' })
     public victoryDelay: number = 0.4;
 
+    @property({ type: AudioController, tooltip: 'Ссылка на AudioController' })
+    public audioController: AudioController | null = null;
+
     /** Callback при поражении героя (вызывается после завершения анимации смерти) */
     public onDefeat: (() => void) | null = () => {
         console.log('Player Defeated! Show Fail Screen / CTA');
@@ -125,6 +129,11 @@ export class HeroController extends Component {
 
         if (this.powerLabel && this.powerLabel.node) {
             this._initialLabelScale.set(this.powerLabel.node.scale);
+        }
+
+        if (!this.audioController) {
+            const root = this.node.scene || this.node.parent;
+            this.audioController = root ? root.getComponentInChildren(AudioController) : null;
         }
 
         this.setPower(this.initialPower, false);
@@ -176,6 +185,9 @@ export class HeroController extends Component {
         // Эффект LevelUp воспроизводится только тогда, когда сила/уровень действительно повысились
         if (value > startValue && animated && this.effectsController) {
             this.effectsController.playLevelUp(this.getVisualCenterWorldPosition());
+        }
+        if (this.audioController) {
+            this.audioController.playPowerUp(); // <-- Точка фактического повышения уровня
         }
 
         if (!this.powerLabel) {
@@ -478,6 +490,9 @@ export class HeroController extends Component {
 
             // 2. В момент кульминации удара (attackHitDelay) трясем камеру и враг погибает
             this.scheduleOnce(() => {
+                if (this.audioController) {
+                    this.audioController.playSword(); // <-- Звук удара мечом
+                }
                 if (this.cameraFollow) {
                     this.cameraFollow.shake();
                 }
@@ -504,6 +519,9 @@ export class HeroController extends Component {
 
             // 2. В момент удара врага трясем камеру и герой погибает
             this.scheduleOnce(() => {
+                if (this.audioController) {
+                    this.audioController.playWhump(); // <-- Звук дробящего удара противника
+                }
                 if (this.cameraFollow) {
                     this.cameraFollow.shake();
                 }

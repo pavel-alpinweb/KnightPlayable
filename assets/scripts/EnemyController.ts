@@ -2,6 +2,7 @@ import { _decorator, Component, dragonBones, Node, Label, Vec3, UITransform } fr
 import { HeroController } from './HeroController';
 import type { EnemiesManager } from './EnemiesManager';
 import { EffectsController } from './EffectsController';
+import {AudioController} from "./AudioController";
 const { ccclass, property } = _decorator;
 
 @ccclass('EnemyController')
@@ -48,9 +49,17 @@ export class EnemyController extends Component {
     @property({ tooltip: 'Задержка до контакта удара в секундах (момент удара по герою)' })
     public attackHitDelay: number = 0.25;
 
+    @property({ type: AudioController, tooltip: 'Ссылка на AudioController' })
+    public audioController: AudioController | null = null;
+
     private _hasDied: boolean = false;
 
     protected onLoad(): void {
+        if (!this.audioController) {
+            const root = this.node.scene || this.node.parent;
+            this.audioController = root ? root.getComponentInChildren(AudioController) : null;
+        }
+
         if (!this.attackPoint) {
             this.attackPoint = this.node.getChildByName('AttackPoint');
         }

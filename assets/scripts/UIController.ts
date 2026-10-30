@@ -1,6 +1,7 @@
 import { _decorator, Component, Node, find, view, UITransform, Vec3, tween, Tween, Widget, UIOpacity } from 'cc';
 import { HeroController } from './HeroController';
 import { EnemiesManager } from './EnemiesManager';
+import { AudioController } from './AudioController';
 const { ccclass, property } = _decorator;
 
 @ccclass('UIController')
@@ -16,6 +17,9 @@ export class UIController extends Component {
 
     @property({ type: EnemiesManager, tooltip: 'Ссылка на EnemiesManager' })
     public enemiesManager: EnemiesManager | null = null;
+
+    @property({ type: AudioController, tooltip: 'Ссылка на AudioController' })
+    public audioController: AudioController | null = null;
 
     @property({ tooltip: 'Отступ от краев экрана в процентах (0.9 = 90% доступного экрана)' })
     public screenPaddingFactor: number = 0.9;
@@ -88,6 +92,12 @@ export class UIController extends Component {
         }
         if (this.victoryScreen) {
             this.victoryScreen.active = false;
+        }
+
+        // Поиск AudioController (если не назначен в инспекторе)
+        if (!this.audioController) {
+            const root = this.node.scene || this.node.parent;
+            this.audioController = root ? root.getComponentInChildren(AudioController) : null;
         }
 
         // Поиск HeroController и подписка на поражение
@@ -166,6 +176,10 @@ export class UIController extends Component {
     public showDefeatScreen(): void {
         this.updateModalsScale();
 
+        if (this.audioController) {
+            this.audioController.playDefeat();
+        }
+
         if (this._defeatTween) {
             this._defeatTween.stop();
             this._defeatTween = null;
@@ -237,6 +251,10 @@ export class UIController extends Component {
      */
     public showVictoryScreen(): void {
         this.updateModalsScale();
+
+        if (this.audioController) {
+            this.audioController.playSuccess();
+        }
 
         if (this._victoryTween) {
             this._victoryTween.stop();

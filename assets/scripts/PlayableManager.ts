@@ -1,4 +1,5 @@
 import { _decorator, Component, Node, Animation, dragonBones } from 'cc';
+import {AudioController} from "./AudioController";
 const { ccclass, property } = _decorator;
 
 @ccclass('PlayableManager')
@@ -8,6 +9,9 @@ export class PlayableManager extends Component {
         tooltip: 'Корневой узел игрового мира (персонажи, препятствия и т.д.)',
     })
     public gameRoot: Node = null;
+
+    @property({ type: AudioController, tooltip: 'Ссылка на AudioController' })
+    public audioController: AudioController | null = null;
 
     public isGameStarted: boolean = false;
 
@@ -44,6 +48,11 @@ export class PlayableManager extends Component {
             return;
         }
         this.isGameStarted = true;
+
+        // Первое реальное пользовательское действие — снимаем ограничение autoplay
+        if (this.audioController) {
+            this.audioController.unlockAudio();
+        }
 
         if (this.gameRoot) {
             // Включаем компоненты логики
