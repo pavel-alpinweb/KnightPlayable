@@ -1,7 +1,8 @@
-import { _decorator, Component, Node, find, view, UITransform, Vec3, tween, Tween, Widget, UIOpacity } from 'cc';
-import { HeroController } from './HeroController';
-import { EnemiesManager } from './EnemiesManager';
+import { _decorator, Component, Node, view, UITransform, Vec3, tween, Tween, Widget, UIOpacity } from 'cc';
 import { AudioController } from './AudioController';
+import { PlayableManager } from './PlayableManager';
+import { PlayableSDKAdapter } from './PlayableSDKAdapter';
+
 const { ccclass, property } = _decorator;
 
 @ccclass('UIController')
@@ -12,11 +13,11 @@ export class UIController extends Component {
     @property({ type: Node, tooltip: 'Нода окна победы (VictoryScreen)' })
     public victoryScreen: Node | null = null;
 
-    @property({ type: HeroController, tooltip: 'Ссылка на HeroController' })
-    public hero: HeroController | null = null;
+    @property({ type: PlayableManager, tooltip: 'Ссылка на PlayableManager' })
+    public playableManager: PlayableManager | null = null;
 
-    @property({ type: EnemiesManager, tooltip: 'Ссылка на EnemiesManager' })
-    public enemiesManager: EnemiesManager | null = null;
+    @property({ type: PlayableSDKAdapter, tooltip: 'Ссылка на PlayableSDKAdapter' })
+    public playableSDKAdapter: PlayableSDKAdapter | null = null;
 
     @property({ type: AudioController, tooltip: 'Ссылка на AudioController' })
     public audioController: AudioController | null = null;
@@ -94,32 +95,19 @@ export class UIController extends Component {
             this.victoryScreen.active = false;
         }
 
-        // Поиск AudioController (если не назначен в инспекторе)
+        // Поиск менеджеров при отсутствии явной привязки в Inspector
+        const scene = this.node.scene || this.node.parent;
+
         if (!this.audioController) {
-            const root = this.node.scene || this.node.parent;
-            this.audioController = root ? root.getComponentInChildren(AudioController) : null;
+            this.audioController = scene ? scene.getComponentInChildren(AudioController) : null;
         }
 
-        // Поиск HeroController и подписка на поражение
-        if (!this.hero) {
-            this.hero = find('Canvas/GameRoot/Hero')?.getComponent(HeroController)
-                || this.node.scene.getComponentInChildren(HeroController);
-        }
-        if (this.hero) {
-            this.hero.onDefeat = () => {
-                this.showDefeatScreen();
-            };
+        if (!this.playableManager) {
+            this.playableManager = scene ? scene.getComponentInChildren(PlayableManager) : null;
         }
 
-        // Поиск EnemiesManager и подписка на победу
-        if (!this.enemiesManager) {
-            this.enemiesManager = find('Canvas/GameRoot/goblins')?.getComponent(EnemiesManager)
-                || this.node.scene.getComponentInChildren(EnemiesManager);
-        }
-        if (this.enemiesManager) {
-            this.enemiesManager.onVictory = () => {
-                this.showVictoryScreen();
-            };
+        if (!this.playableSDKAdapter) {
+            this.playableSDKAdapter = scene ? scene.getComponentInChildren(PlayableSDKAdapter) : null;
         }
 
         // Слушаем изменение размеров и ориентации экрана
@@ -164,9 +152,7 @@ export class UIController extends Component {
         const scaleX = maxAvailableWidth / designSize.width;
         const scaleY = maxAvailableHeight / designSize.height;
 
-        // Вписываем в экран с сохранением пропорций, не увеличивая больше 1.0
         const finalScale = Math.min(1.0, scaleX, scaleY);
-
         container.setScale(new Vec3(finalScale, finalScale, 1));
     }
 
@@ -193,7 +179,6 @@ export class UIController extends Component {
             return;
         }
 
-        // 1. Отключаем Widget на случай, если он был включен
         const widget = container.getComponent(Widget);
         if (widget) {
             widget.enabled = false;
@@ -203,25 +188,21 @@ export class UIController extends Component {
         const startY = visibleSize.height * 1.2;
         const targetPos = new Vec3(0, 0, 0);
 
-        // 2. Скрываем контейнер по прозрачности и сразу ставим за верхний край
         if (this._defeatOpacity) {
             this._defeatOpacity.opacity = 0;
         }
         container.setPosition(new Vec3(0, startY, 0));
 
-        // 3. Активируем экран
         if (this.defeatScreen) {
             this.defeatScreen.active = true;
         }
 
-        // 4. Плавно проявляем контейнер за доли секунды во время движения
         if (this._defeatOpacity) {
             tween(this._defeatOpacity)
                 .to(0.08, { opacity: 255 })
                 .start();
         }
 
-        // 5. Запускаем анимацию падения
         this._defeatTween = tween(container)
             .to(this.defeatAnimationDuration, { position: targetPos }, { easing: 'bounceOut' })
             .call(() => {
@@ -269,42 +250,35 @@ export class UIController extends Component {
             return;
         }
 
-        // 1. Отключаем Widget на случай, если он был включен
         const widget = container.getComponent(Widget);
         if (widget) {
             widget.enabled = false;
         }
 
         const visibleSize = view.getVisibleSize();
-        // Начинаем снизу экрана
         const startY = -visibleSize.height * 0.9;
-        const baseScale = container.scale.x; // запоминаем целевой масштаб под экран
+        const baseScale = container.scale.x;
 
-        // 2. Скрываем прозрачность и ставим стартовую позицию и форму ("заряженная пружина")
         if (this._victoryOpacity) {
             this._victoryOpacity.opacity = 0;
         }
         container.setPosition(new Vec3(0, startY, 0));
-        container.setScale(new Vec3(baseScale * 0.7, baseScale * 1.3, 1)); // вытянуто вверх при взлете
+        container.setScale(new Vec3(baseScale * 0.7, baseScale * 1.3, 1));
 
-        // 3. Активируем экран
         if (this.victoryScreen) {
             this.victoryScreen.active = true;
         }
 
-        // 4. Мгновенно проявляем альфу
         if (this._victoryOpacity) {
             tween(this._victoryOpacity)
                 .to(0.06, { opacity: 255 })
                 .start();
         }
 
-        // 5. Двухфазная радостная пружинящая анимация (Взлет с овершутом -> подпрыгивание на радостях)
-        const overshootY = 50; // перелет выше центра
-        const dipY = -15;       // небольшой отскок вниз перед фиксацией
+        const overshootY = 50;
+        const dipY = -15;
 
         this._victoryTween = tween(container)
-            // Фаза 1: Стремительный взлет с перелетом вверх + раздувание от триумфа
             .to(
                 0.28,
                 {
@@ -313,7 +287,6 @@ export class UIController extends Component {
                 },
                 { easing: 'cubicOut' }
             )
-            // Фаза 2: Радостный подскок вниз (пружина)
             .to(
                 0.14,
                 {
@@ -322,7 +295,6 @@ export class UIController extends Component {
                 },
                 { easing: 'quadInOut' }
             )
-            // Фаза 3: Окончательная мягкая посадка в центр (0, 0, 0) с нормальным масштабом
             .to(
                 0.13,
                 {
@@ -350,6 +322,43 @@ export class UIController extends Component {
         }
         if (this._victoryContainer) {
             this._victoryContainer.setPosition(new Vec3(0, 0, 0));
+        }
+    }
+
+    // ==========================================
+    // UI Button Handlers
+    // ==========================================
+
+    /**
+     * Button Click Event: Retry
+     */
+    public onRetryClicked(): void {
+        if (this.playableManager) {
+            this.playableManager.retryGame();
+        } else {
+            console.warn('[UIController] PlayableManager reference missing on retry.');
+        }
+    }
+
+    /**
+     * Button Click Event: Upgrade (CTA)
+     */
+    public onUpgradeClicked(): void {
+        if (this.playableSDKAdapter) {
+            this.playableSDKAdapter.download();
+        } else {
+            console.warn('[UIController] PlayableSDKAdapter reference missing on upgrade.');
+        }
+    }
+
+    /**
+     * Button Click Event: Next (CTA)
+     */
+    public onNextClicked(): void {
+        if (this.playableSDKAdapter) {
+            this.playableSDKAdapter.download();
+        } else {
+            console.warn('[UIController] PlayableSDKAdapter reference missing on next.');
         }
     }
 }
