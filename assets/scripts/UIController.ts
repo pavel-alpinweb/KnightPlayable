@@ -1,4 +1,4 @@
-import { _decorator, Component, Node, view, UITransform, Vec3, tween, Tween, Widget, UIOpacity } from 'cc';
+import { _decorator, Component, Node, view, UITransform, Vec3, tween, Tween, Widget, UIOpacity, EventTouch } from 'cc';
 import { AudioController } from './AudioController';
 import { PlayableManager } from './PlayableManager';
 import { PlayableSDKAdapter } from './PlayableSDKAdapter';
@@ -330,35 +330,84 @@ export class UIController extends Component {
     // ==========================================
 
     /**
+     * Воспроизводит пружинящую анимацию нажатия кнопки (scale punch)
+     * @param targetNode Нода нажатой кнопки
+     * @param onComplete Callback после завершения анимации
+     */
+    public animateButtonClick(targetNode: Node | null, onComplete?: () => void): void {
+        if (!targetNode || !targetNode.isValid) {
+            if (onComplete) onComplete();
+            return;
+        }
+
+        Tween.stopAllByTarget(targetNode);
+
+        const originalScale = targetNode.scale.clone();
+        // Сжатие до 88% от исходного размера
+        const pressedScale = new Vec3(originalScale.x * 0.88, originalScale.y * 0.88, originalScale.z);
+
+        tween(targetNode)
+            // Фаза 1: Быстрое сжатие при тапе
+            .to(0.08, { scale: pressedScale }, { easing: 'quadOut' })
+            // Фаза 2: Упругий отскок с эффектом backOut
+            .to(0.18, { scale: originalScale }, { easing: 'backOut' })
+            .call(() => {
+                if (onComplete) {
+                    onComplete();
+                }
+            })
+            .start();
+    }
+
+    /**
      * Button Click Event: Retry
      */
-    public onRetryClicked(): void {
-        if (this.playableManager) {
-            this.playableManager.retryGame();
-        } else {
-            console.warn('[UIController] PlayableManager reference missing on retry.');
-        }
+    public onRetryClicked(event?: EventTouch): void {
+        const btnNode = (event && event.target)
+            || this._defeatContainer?.getChildByName('retry_btn')
+            || null;
+
+        this.animateButtonClick(btnNode, () => {
+            if (this.playableManager) {
+                this.playableManager.retryGame();
+            } else {
+                console.warn('[UIController] PlayableManager reference missing on retry.');
+            }
+        });
     }
 
     /**
      * Button Click Event: Upgrade (CTA)
      */
-    public onUpgradeClicked(): void {
-        if (this.playableSDKAdapter) {
-            this.playableSDKAdapter.download();
-        } else {
-            console.warn('[UIController] PlayableSDKAdapter reference missing on upgrade.');
-        }
+    public onUpgradeClicked(event?: EventTouch): void {
+        const btnNode = (event && event.target)
+            || this._defeatContainer?.getChildByName('upgrade_btn')
+            || this._victoryContainer?.getChildByName('upgrade_btn')
+            || null;
+
+        this.animateButtonClick(btnNode, () => {
+            if (this.playableSDKAdapter) {
+                this.playableSDKAdapter.download();
+            } else {
+                console.warn('[UIController] PlayableSDKAdapter reference missing on upgrade.');
+            }
+        });
     }
 
     /**
      * Button Click Event: Next (CTA)
      */
-    public onNextClicked(): void {
-        if (this.playableSDKAdapter) {
-            this.playableSDKAdapter.download();
-        } else {
-            console.warn('[UIController] PlayableSDKAdapter reference missing on next.');
-        }
+    public onNextClicked(event?: EventTouch): void {
+        const btnNode = (event && event.target)
+            || this._victoryContainer?.getChildByName('next_btn')
+            || null;
+
+        this.animateButtonClick(btnNode, () => {
+            if (this.playableSDKAdapter) {
+                this.playableSDKAdapter.download();
+            } else {
+                console.warn('[UIController] PlayableSDKAdapter reference missing on next.');
+            }
+        });
     }
 }
