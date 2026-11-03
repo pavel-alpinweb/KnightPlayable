@@ -367,13 +367,13 @@ export class UIController extends Component {
             || this._defeatContainer?.getChildByName('retry_btn')
             || null;
 
-        this.animateButtonClick(btnNode, () => {
-            if (this.playableManager) {
-                this.playableManager.retryGame();
-            } else {
-                console.warn('[UIController] PlayableManager reference missing on retry.');
-            }
-        });
+        if (this.playableManager) {
+            this.playableManager.retryGame();
+        } else {
+            console.warn('[UIController] PlayableManager reference missing on retry.');
+        }
+
+        this.animateButtonClick(btnNode);
     }
 
     /**
@@ -385,13 +385,17 @@ export class UIController extends Component {
             || this._victoryContainer?.getChildByName('upgrade_btn')
             || null;
 
-        this.animateButtonClick(btnNode, () => {
-            if (this.playableSDKAdapter) {
-                this.playableSDKAdapter.download();
-            } else {
-                console.warn('[UIController] PlayableSDKAdapter reference missing on upgrade.');
-            }
-        });
+        // CTA должен вызываться непосредственно при нажатии.
+        if (this.playableSDKAdapter) {
+            this.playableSDKAdapter.download();
+        } else {
+            console.warn(
+                '[UIController] PlayableSDKAdapter reference missing on upgrade.'
+            );
+        }
+
+        // Анимация не блокирует SDK.
+        this.animateButtonClick(btnNode);
     }
 
     /**
@@ -402,12 +406,14 @@ export class UIController extends Component {
             || this._victoryContainer?.getChildByName('next_btn')
             || null;
 
-        this.animateButtonClick(btnNode, () => {
-            if (this.playableSDKAdapter) {
-                this.playableSDKAdapter.download();
-            } else {
-                console.warn('[UIController] PlayableSDKAdapter reference missing on next.');
-            }
-        });
+        if (this.playableSDKAdapter) {
+            this.playableSDKAdapter.download();
+        } else {
+            console.warn(
+                '[UIController] PlayableSDKAdapter reference missing on next.'
+            );
+        }
+
+        this.animateButtonClick(btnNode);
     }
 }
