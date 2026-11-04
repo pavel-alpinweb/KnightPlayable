@@ -7,11 +7,22 @@ export class PlayableSDKAdapter extends Component {
      * Вызывает переход по рекламе / установку приложения
      */
     public download(): void {
-        if (typeof PlayableSDK !== 'undefined' && typeof PlayableSDK.download === 'function') {
+        const portfolioUrl = 'https://alpinweb.com';
+
+        if (typeof PlayableSDK !== 'undefined') {
+            // Специальная обработка для публичного демо.
+            if (PlayableSDK.channel === 'PureHTML') {
+                window.open(portfolioUrl, '_blank', 'noopener,noreferrer');
+                return;
+            }
+
+            // Все рекламные платформы используют собственный SDK.
             PlayableSDK.download();
-        } else {
-            console.log('[PlayableSDK Preview] download() invoked (SDK unavailable in editor preview)');
+            return;
         }
+
+        // Обычный Cocos Preview без Bingo.
+        console.log('[PlayableSDK Preview] download() invoked');
     }
 
     /**
