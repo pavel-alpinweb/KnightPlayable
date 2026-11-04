@@ -14037,8 +14037,8 @@
     "_prefab": null,
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": -13.902000000000044,
-      "y": 2.1789999999999736,
+      "x": -16.343999999999994,
+      "y": 10.895999999999958,
       "z": 0
     },
     "_lrot": {
@@ -14107,7 +14107,7 @@
       "a": 140
     },
     "_spriteFrame": {
-      "__uuid__": "20835ba4-6145-4fbc-a58a-051ce700aa3e@f9941",
+      "__uuid__": "fb41b82a-7313-4e6d-bc62-7ef38d5fbff1@f9941",
       "__expectedType__": "cc.SpriteFrame"
     },
     "_type": 0,
@@ -14139,10 +14139,10 @@
     "_target": {
       "__id__": 2
     },
-    "_left": 2.4419999999999726,
-    "_right": -2.4419999999999726,
-    "_top": 8.716999999999999,
-    "_bottom": -8.716999999999999,
+    "_left": 0,
+    "_right": 0,
+    "_top": 0,
+    "_bottom": 0,
     "_horizontalCenter": 0,
     "_verticalCenter": 0,
     "_isAbsLeft": true,
