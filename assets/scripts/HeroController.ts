@@ -1,16 +1,43 @@
-import { _decorator, Component, dragonBones, Tween, tween, Node, Vec3, Label } from 'cc';
+import { _decorator, Component, dragonBones, Tween, tween, Node, Vec3, Label, UITransform } from 'cc';
 import type { WeaponController } from './WeaponController';
 import type { EnemyController } from './EnemyController';
+import type { EnemiesManager } from './EnemiesManager';
+import { PathController } from './PathController';
+import { RouteController } from './RouteController';
+import { CameraFollow2D } from './CameraFollow2D';
+import { EffectsController } from './EffectsController';
+import {AudioController} from "./AudioController";
 const { ccclass, property, requireComponent } = _decorator;
 
-
 @ccclass('HeroController')
+@requireComponent(PathController)
 export class HeroController extends Component {
     @property({ type: dragonBones.ArmatureDisplay, tooltip: 'Ссылка на ArmatureDisplay (если не задано, ищется в дочерних нодах)' })
     public armatureDisplay: dragonBones.ArmatureDisplay | null = null;
 
+    @property({ type: PathController, tooltip: 'Ссылка на PathController (если не задано, берется с этой же ноды)' })
+    public pathController: PathController | null = null;
+
+    @property({ type: RouteController, tooltip: 'Ссылка на RouteController сцены' })
+    public routeController: RouteController | null = null;
+
+    @property({ type: CameraFollow2D, tooltip: 'Ссылка на CameraFollow2D (если не задано, ищется в сцене)' })
+    public cameraFollow: CameraFollow2D | null = null;
+
+    @property({ type: EffectsController, tooltip: 'Ссылка на EffectsController (если не задано, ищется в сцене)' })
+    public effectsController: EffectsController | null = null;
+
     @property({ type: Label, tooltip: 'Ссылка на Label уровня/силы (если не задано, ищется в дочерних нодах)' })
     public powerLabel: Label | null = null;
+
+    @property({ tooltip: 'Длительность анимации счетчика силы в секундах' })
+    public powerCountDuration: number = 0.5;
+
+    @property({ tooltip: 'Коэффициент увеличения размера Label при росте силы (1.0 = без увеличения)' })
+    public powerScaleMultiplier: number = 1.3;
+
+    @property({ tooltip: 'Длительность возвращения размера Label в исходное состояние (секунды)' })
+    public powerScaleReturnDuration: number = 0.15;
 
     @property({ tooltip: 'Начальный уровень / сила героя' })
     public initialPower: number = 10;
@@ -36,8 +63,8 @@ export class HeroController extends Component {
     @property({ tooltip: 'Задержка до контакта удара в секундах (момент опускания меча на врага)' })
     public attackHitDelay: number = 0.25;
 
-    @property({ tooltip: 'Имя анимации гибели (die)' })
-    public dieAnimationName: string = 'die';
+    @property({ tooltip: 'Имя анимации гибели (dying)' })
+    public dieAnimationName: string = 'dying';
 
     @property({ tooltip: 'Скорость анимации гибели (1.0 = нормальная скорость)' })
     public dieTimeScale: number = 1.0;
@@ -51,6 +78,12 @@ export class HeroController extends Component {
     @property({ tooltip: 'Смотрит ли персонаж вправо по умолчанию (при положительном scale.x)' })
     public isFacingRightDefault: boolean = true;
 
+    @property({ tooltip: 'Пауза перед фиксацией победы после окончания анимации силы (секунды)' })
+    public victoryDelay: number = 0.4;
+
+    @property({ type: AudioController, tooltip: 'Ссылка на AudioController' })
+    public audioController: AudioController | null = null;
+
     /** Callback при поражении героя (вызывается после завершения анимации смерти) */
     public onDefeat: (() => void) | null = () => {
         console.log('Player Defeated! Show Fail Screen / CTA');
@@ -58,8 +91,30 @@ export class HeroController extends Component {
 
     private _power: number = 0;
     private _moveTween: Tween<Node> | null = null;
+    private _powerTween: Tween<{ value: number }> | null = null;
+    private _labelScaleTween: Tween<Node> | null = null;
+    private _initialLabelScale: Vec3 = new Vec3(1, 1, 1);
 
     protected onLoad(): void {
+        if (!this.pathController) {
+            this.pathController = this.getComponent(PathController);
+        }
+
+        if (!this.routeController) {
+            const root = this.node.parent || this.node.scene;
+            this.routeController = root.getComponentInChildren(RouteController);
+        }
+
+        if (!this.cameraFollow) {
+            const root = this.node.scene || this.node.parent;
+            this.cameraFollow = root ? root.getComponentInChildren(CameraFollow2D) : null;
+        }
+
+        if (!this.effectsController) {
+            const root = this.node.scene || this.node.parent;
+            this.effectsController = root ? root.getComponentInChildren(EffectsController) : null;
+        }
+
         if (!this.armatureDisplay) {
             this.armatureDisplay = this.getComponentInChildren(dragonBones.ArmatureDisplay);
         }
@@ -72,7 +127,16 @@ export class HeroController extends Component {
             this.powerLabel = this.getComponentInChildren(Label);
         }
 
-        this.setPower(this.initialPower);
+        if (this.powerLabel && this.powerLabel.node) {
+            this._initialLabelScale.set(this.powerLabel.node.scale);
+        }
+
+        if (!this.audioController) {
+            const root = this.node.scene || this.node.parent;
+            this.audioController = root ? root.getComponentInChildren(AudioController) : null;
+        }
+
+        this.setPower(this.initialPower, false);
         this.setWeaponVisible(false);
     }
 
@@ -81,20 +145,115 @@ export class HeroController extends Component {
     }
 
     /**
-     * Устанавливает текущую силу героя и обновляет Label
+     * Возвращает мировые координаты визуального центра героя
      */
-    public setPower(value: number): void {
-        this._power = value;
-        if (this.powerLabel) {
-            this.powerLabel.string = `${this._power}`;
+    public getVisualCenterWorldPosition(): Vec3 {
+        const visualNode = this.armatureDisplay ? this.armatureDisplay.node : this.node;
+        const transform = visualNode.getComponent(UITransform);
+        if (transform && transform.contentSize.height > 0) {
+            const localCenter = new Vec3(
+                (0.5 - transform.anchorX) * transform.contentSize.width,
+                (0.5 - transform.anchorY) * transform.contentSize.height,
+                0
+            );
+            return transform.convertToWorldSpaceAR(localCenter);
         }
+
+        return visualNode.worldPosition.clone();
+    }
+
+    /**
+     * Устанавливает текущую силу героя и обновляет Label
+     * @param value Новое значение силы
+     * @param animated Запускать ли анимацию счетчика (по умолчанию true)
+     * @param onComplete Вызывается по окончании анимации счетчика силы
+     */
+    public setPower(value: number, animated: boolean = true, onComplete?: () => void): void {
+        const startValue = this._power;
+        this._power = value;
+
+        if (this._powerTween) {
+            this._powerTween.stop();
+            this._powerTween = null;
+        }
+
+        if (this._labelScaleTween) {
+            this._labelScaleTween.stop();
+            this._labelScaleTween = null;
+        }
+
+        // Эффект LevelUp воспроизводится только тогда, когда сила/уровень действительно повысились
+        if (value > startValue && animated && this.effectsController) {
+            this.effectsController.playLevelUp(this.getVisualCenterWorldPosition());
+        }
+        if (this.audioController) {
+            this.audioController.playPowerUp(); // <-- Точка фактического повышения уровня
+        }
+
+        if (!this.powerLabel) {
+            if (onComplete) onComplete();
+            return;
+        }
+
+        if (!animated || this.powerCountDuration <= 0 || startValue === value) {
+            this.powerLabel.string = `${this._power}`;
+            this.powerLabel.node.setScale(this._initialLabelScale);
+            if (onComplete) onComplete();
+            return;
+        }
+
+        // Анимация раздувания и возврата размера Label
+        const labelNode = this.powerLabel.node;
+        const targetScale = new Vec3(
+            this._initialLabelScale.x * this.powerScaleMultiplier,
+            this._initialLabelScale.y * this.powerScaleMultiplier,
+            this._initialLabelScale.z
+        );
+
+        const growDuration = Math.min(0.12, this.powerCountDuration * 0.3);
+        const holdDuration = Math.max(0, this.powerCountDuration - growDuration);
+
+        this._labelScaleTween = tween(labelNode)
+            .to(growDuration, { scale: targetScale }, { easing: 'quadOut' })
+            .delay(holdDuration)
+            .to(this.powerScaleReturnDuration, { scale: this._initialLabelScale }, { easing: 'backOut' })
+            .call(() => {
+                this._labelScaleTween = null;
+            })
+            .start();
+
+        const state = { value: startValue };
+        this._powerTween = tween(state)
+            .to(
+                this.powerCountDuration,
+                { value: this._power },
+                {
+                    onUpdate: (target?: { value: number }) => {
+                        if (this.powerLabel && target) {
+                            this.powerLabel.string = `${Math.round(target.value)}`;
+                        }
+                    },
+                }
+            )
+            .call(() => {
+                if (this.powerLabel) {
+                    this.powerLabel.string = `${this._power}`;
+                }
+                this._powerTween = null;
+                if (onComplete) {
+                    onComplete();
+                }
+            })
+            .start();
     }
 
     /**
      * Изменяет текущую силу героя на дельту
+     * @param delta Величина изменения силы
+     * @param onComplete Вызывается по окончании анимации счетчика силы
      */
-    public addPower(delta: number): void {
-        this.setPower(this._power + delta);
+    public addPower(delta: number, onComplete?: () => void): void {
+        this.setPower(this._power + delta, true, onComplete);
     }
 
     /**
@@ -232,22 +391,56 @@ export class HeroController extends Component {
      * Перемещает персонажа к указанному противнику и инициирует бой
      */
     public moveToEnemy(enemy: EnemyController | Node): void {
-        console.log('moveToEnemy', enemy);
         if (!enemy) {
             return;
         }
 
-        const enemyNode = enemy instanceof Node ? enemy : enemy.node;
         const enemyController = enemy instanceof Node ? enemy.getComponent('EnemyController') as EnemyController | null : enemy;
+        if (!enemyController) {
+            return;
+        }
 
         if (this._moveTween) {
             this._moveTween.stop();
             this._moveTween = null;
         }
 
-        this.playWalk();
+        if (this.pathController && this.routeController) {
+            const route = this.routeController.getRouteToEnemy(enemyController);
+            if (route.length === 0) {
+                return;
+            }
 
-        // Переводим мировую позицию противника в локальные координаты родителя персонажа
+            this.playWalk();
+
+            // Подсвечиваем предстоящий маршрут желтым
+            this.routeController.highlightRoute(route);
+
+            this.pathController.followPath(
+                route,
+                () => {
+                    this.engageEnemy(enemyController);
+                },
+                (reachedNode: Node) => {
+                    if (this.routeController) {
+                        const index = this.routeController.getWaypointIndex(reachedNode);
+                        if (index >= 0) {
+                            this.routeController.setCurrentWaypointIndex(index);
+                        }
+                        // Отмечаем достигнутую точку зелёным цветом
+                        this.routeController.markWaypointCompleted(reachedNode);
+                    }
+                },
+                (targetLocalX: number) => {
+                    this.faceTowards(targetLocalX);
+                }
+            );
+            return;
+        }
+
+        // Запасной fallback на прямолинейное движение, если RouteController не настроен
+        this.playWalk();
+        const enemyNode = enemyController.node;
         const targetLocalPos = new Vec3();
         if (this.node.parent) {
             this.node.parent.inverseTransformPoint(targetLocalPos, enemyNode.worldPosition);
@@ -255,10 +448,8 @@ export class HeroController extends Component {
             targetLocalPos.set(enemyNode.worldPosition);
         }
 
-        // Разворачиваем лицом к противнику
         this.faceTowards(targetLocalPos.x);
 
-        // Учитываем дистанцию остановки (если персонаж слева от врага — останавливаемся левее)
         if (this.stopDistance > 0) {
             const directionX = this.node.position.x < targetLocalPos.x ? -1 : 1;
             targetLocalPos.x += directionX * this.stopDistance;
@@ -268,43 +459,79 @@ export class HeroController extends Component {
             .to(this.moveDuration, { position: targetLocalPos })
             .call(() => {
                 this._moveTween = null;
-
-                if (enemyController) {
-                    if (this._power >= enemyController.power) {
-                        const enemyRewardPower = enemyController.power;
-
-                        // 1. Герой начинает замах атаки
-                        this.playAttack();
-
-                        // 2. В момент кульминации удара (attackHitDelay) враг реагирует смертью
-                        this.scheduleOnce(() => {
-                            enemyController.die(() => {
-                                // 3. После завершения анимации враг удаляется, а герою прибавляется сила
-                                this.addPower(enemyRewardPower);
-                            });
-                        }, this.attackHitDelay);
-                    } else {
-                        // Герой останавливается перед сильным противником
-                        this.playIdle();
-
-                        // 1. Враг наносит удар
-                        enemyController.playAttack();
-
-                        // 2. В момент удара врага герой проигрывает гибель
-                        this.scheduleOnce(() => {
-                            this.die(() => {
-                                if (this.onDefeat) {
-                                    this.onDefeat();
-                                }
-                            });
-                        }, enemyController.attackHitDelay);
-                    }
-                } else {
-                    this.playIdle();
-                    enemyNode.destroy();
-                }
+                this.engageEnemy(enemyController);
             })
             .start();
+    }
+
+    /**
+     * Инициирует боевое столкновение с противником после прибытия к нему
+     */
+    public engageEnemy(enemyController: EnemyController): void {
+        if (!enemyController || !enemyController.node.isValid) {
+            this.playIdle();
+            return;
+        }
+
+        // Поворачиваем героя лицом к противнику перед боем
+        const targetLocalPos = new Vec3();
+        if (this.node.parent) {
+            this.node.parent.inverseTransformPoint(targetLocalPos, enemyController.node.worldPosition);
+        } else {
+            targetLocalPos.set(enemyController.node.worldPosition);
+        }
+        this.faceTowards(targetLocalPos.x);
+
+        if (this._power >= enemyController.power) {
+            const enemyRewardPower = enemyController.power;
+
+            // 1. Герой начинает замах атаки
+            this.playAttack();
+
+            // 2. В момент кульминации удара (attackHitDelay) трясем камеру и враг погибает
+            this.scheduleOnce(() => {
+                if (this.audioController) {
+                    this.audioController.playSword(); // <-- Звук удара мечом
+                }
+                if (this.cameraFollow) {
+                    this.cameraFollow.shake();
+                }
+                enemyController.die(() => {
+                    // 3. После завершения анимации гибели врага запускаем анимацию прибавки силы героя
+                    this.addPower(enemyRewardPower, () => {
+                        // 4. После полного завершения анимации счетчика силы ждем victoryDelay перед регистрацией победы
+                        this.scheduleOnce(() => {
+                            const enemiesManager = this.node.scene?.getComponentInChildren('EnemiesManager') as EnemiesManager | null
+                                || this.node.parent?.getComponentInChildren('EnemiesManager') as EnemiesManager | null;
+                            if (enemiesManager) {
+                                enemiesManager.onEnemyDied(enemyController);
+                            }
+                        }, this.victoryDelay);
+                    });
+                });
+            }, this.attackHitDelay);
+        } else {
+            // Герой слабее противника — останавливается
+            this.playIdle();
+
+            // 1. Враг наносит удар
+            enemyController.playAttack();
+
+            // 2. В момент удара врага трясем камеру и герой погибает
+            this.scheduleOnce(() => {
+                if (this.audioController) {
+                    this.audioController.playWhump(); // <-- Звук дробящего удара противника
+                }
+                if (this.cameraFollow) {
+                    this.cameraFollow.shake();
+                }
+                this.die(() => {
+                    if (this.onDefeat) {
+                        this.onDefeat();
+                    }
+                });
+            }, enemyController.attackHitDelay);
+        }
     }
 
     /**

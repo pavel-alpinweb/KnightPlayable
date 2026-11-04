@@ -49,11 +49,27 @@ export class CameraFollow2D extends Component {
     })
     public smoothSpeed: number = 5.0;
 
+    @property({
+        group: { name: 'Shake', id: '3' },
+        tooltip: 'Сила тряски камеры по умолчанию (в пикселях)',
+    })
+    public defaultShakeIntensity: number = 12;
+
+    @property({
+        group: { name: 'Shake', id: '3' },
+        tooltip: 'Длительность тряски камеры по умолчанию (в секундах)',
+    })
+    public defaultShakeDuration: number = 0.2;
+
     private _desiredPos: Vec3 = new Vec3();
     private _isInitialized: boolean = false;
     private _lastIsPortrait: boolean | null = null;
     private _currentZoom: number = 1.0;
     private _currentOffset: Vec3 = new Vec3();
+
+    private _shakeDuration: number = 0;
+    private _shakeTimer: number = 0;
+    private _shakeIntensity: number = 0;
 
     start() {
         this.resetToTarget();
@@ -76,6 +92,17 @@ export class CameraFollow2D extends Component {
     public getIsPortrait(): boolean {
         const size = view.getVisibleSize();
         return size.height > size.width;
+    }
+
+    /**
+     * Запускает тряску камеры с постепенным затуханием
+     * @param intensity Сила смещения (если не передана, берется defaultShakeIntensity)
+     * @param duration Длительность в секундах (если не передана, берется defaultShakeDuration)
+     */
+    public shake(intensity: number = this.defaultShakeIntensity, duration: number = this.defaultShakeDuration): void {
+        this._shakeIntensity = intensity;
+        this._shakeDuration = duration;
+        this._shakeTimer = duration;
     }
 
     /**
@@ -145,13 +172,26 @@ export class CameraFollow2D extends Component {
         const currentPos = this.gameRoot.position;
 
         // Двигаем игровой мир
-        if (this.smoothSpeed <= 0) {
-            this.gameRoot.setPosition(this._desiredPos);
-        } else {
+        let targetX = this._desiredPos.x;
+        let targetY = this._desiredPos.y;
+
+        if (this.smoothSpeed > 0) {
             const t = Math.min(1.0, deltaTime * this.smoothSpeed);
-            const newX = math.lerp(currentPos.x, this._desiredPos.x, t);
-            const newY = math.lerp(currentPos.y, this._desiredPos.y, t);
-            this.gameRoot.setPosition(newX, newY, currentPos.z);
+            targetX = math.lerp(currentPos.x, this._desiredPos.x, t);
+            targetY = math.lerp(currentPos.y, this._desiredPos.y, t);
         }
+
+        // Рассчитываем затухающее смещение тряски
+        let offsetX = 0;
+        let offsetY = 0;
+        if (this._shakeTimer > 0) {
+            this._shakeTimer -= deltaTime;
+            const progress = Math.max(0, this._shakeTimer / this._shakeDuration);
+            const currentIntensity = this._shakeIntensity * progress;
+            offsetX = (Math.random() * 2 - 1) * currentIntensity;
+            offsetY = (Math.random() * 2 - 1) * currentIntensity;
+        }
+
+        this.gameRoot.setPosition(targetX + offsetX, targetY + offsetY, currentPos.z);
     }
 }

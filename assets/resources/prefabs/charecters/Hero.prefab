@@ -269,8 +269,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 44.4921875,
-      "height": 100.8
+      "width": 57.15998840332031,
+      "height": 123.4
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -300,49 +300,52 @@
     "_dstBlendFactor": 4,
     "_color": {
       "__type__": "cc.Color",
-      "r": 255,
-      "g": 102,
-      "b": 0,
+      "r": 130,
+      "g": 221,
+      "b": 37,
       "a": 255
     },
     "_string": "5",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 80,
-    "_fontSize": 80,
-    "_fontFamily": "Arial",
-    "_lineHeight": 80,
+    "_actualFontSize": 90,
+    "_fontSize": 90,
+    "_fontFamily": "Lilita One",
+    "_lineHeight": 90,
     "_overflow": 0,
     "_enableWrapText": true,
-    "_font": null,
-    "_isSystemFontUsed": true,
+    "_font": {
+      "__uuid__": "f48682a9-cd72-4159-89f0-00f176e4e0f8",
+      "__expectedType__": "cc.TTFFont"
+    },
+    "_isSystemFontUsed": false,
     "_spacingX": 0,
     "_isItalic": false,
     "_isBold": true,
     "_isUnderline": false,
     "_underlineHeight": 2,
     "_cacheMode": 0,
-    "_enableOutline": false,
+    "_enableOutline": true,
     "_outlineColor": {
       "__type__": "cc.Color",
-      "r": 0,
-      "g": 0,
-      "b": 0,
+      "r": 20,
+      "g": 32,
+      "b": 13,
       "a": 255
     },
-    "_outlineWidth": 2,
-    "_enableShadow": false,
+    "_outlineWidth": 5,
+    "_enableShadow": true,
     "_shadowColor": {
       "__type__": "cc.Color",
-      "r": 0,
-      "g": 0,
-      "b": 0,
-      "a": 255
+      "r": 20,
+      "g": 32,
+      "b": 13,
+      "a": 178
     },
     "_shadowOffset": {
       "__type__": "cc.Vec2",
-      "x": 2,
-      "y": 2
+      "x": 3,
+      "y": -4
     },
     "_shadowBlur": 2,
     "_id": ""
@@ -407,17 +410,30 @@
     "armatureDisplay": {
       "__id__": 5
     },
+    "pathController": null,
+    "routeController": null,
+    "cameraFollow": null,
+    "effectsController": null,
     "powerLabel": {
       "__id__": 11
     },
+    "powerCountDuration": 0.5,
+    "powerScaleMultiplier": 1.3,
+    "powerScaleReturnDuration": 0.15,
     "initialPower": 5,
     "idleAnimationName": "idle",
     "idleTimeScale": 1,
     "walkAnimationName": "walking",
     "walkTimeScale": 1,
+    "attackAnimationName": "attack",
+    "attackTimeScale": 1,
+    "attackHitDelay": 0.25,
+    "dieAnimationName": "die",
+    "dieTimeScale": 1,
     "moveDuration": 2,
     "stopDistance": 0,
     "isFacingRightDefault": true,
+    "victoryDelay": 0.4,
     "_id": ""
   },
   {
@@ -433,6 +449,7 @@
       "__id__": 0
     },
     "fileId": "dd/gFkD1tNYbSEO6xP/uhc",
+    "instance": null,
     "targetOverrides": null
   }
 ]

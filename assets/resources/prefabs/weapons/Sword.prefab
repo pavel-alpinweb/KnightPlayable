@@ -266,8 +266,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 44.4921875,
-      "height": 100.8
+      "width": 51.91999816894531,
+      "height": 110.8
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -298,8 +298,8 @@
     "_color": {
       "__type__": "cc.Color",
       "r": 255,
-      "g": 102,
-      "b": 0,
+      "g": 204,
+      "b": 57,
       "a": 255
     },
     "_string": "5",
@@ -307,39 +307,42 @@
     "_verticalAlign": 1,
     "_actualFontSize": 80,
     "_fontSize": 80,
-    "_fontFamily": "Arial",
+    "_fontFamily": "Lilita One",
     "_lineHeight": 80,
     "_overflow": 0,
     "_enableWrapText": true,
-    "_font": null,
-    "_isSystemFontUsed": true,
+    "_font": {
+      "__uuid__": "f48682a9-cd72-4159-89f0-00f176e4e0f8",
+      "__expectedType__": "cc.TTFFont"
+    },
+    "_isSystemFontUsed": false,
     "_spacingX": 0,
     "_isItalic": false,
     "_isBold": true,
     "_isUnderline": false,
     "_underlineHeight": 2,
     "_cacheMode": 0,
-    "_enableOutline": false,
+    "_enableOutline": true,
     "_outlineColor": {
       "__type__": "cc.Color",
-      "r": 0,
-      "g": 0,
-      "b": 0,
+      "r": 59,
+      "g": 39,
+      "b": 15,
       "a": 255
     },
-    "_outlineWidth": 2,
-    "_enableShadow": false,
+    "_outlineWidth": 5,
+    "_enableShadow": true,
     "_shadowColor": {
       "__type__": "cc.Color",
-      "r": 0,
-      "g": 0,
-      "b": 0,
-      "a": 255
+      "r": 59,
+      "g": 39,
+      "b": 15,
+      "a": 178
     },
     "_shadowOffset": {
       "__type__": "cc.Vec2",
-      "x": 2,
-      "y": 2
+      "x": 3,
+      "y": -4
     },
     "_shadowBlur": 2,
     "_id": ""
@@ -402,11 +405,14 @@
       "__id__": 17
     },
     "hero": null,
+    "weaponSprite": null,
     "powerLabel": {
       "__id__": 11
     },
     "power": 10,
     "showPlusSign": true,
+    "floatDistance": 15,
+    "floatDuration": 0.8,
     "_id": ""
   },
   {
@@ -422,6 +428,7 @@
       "__id__": 0
     },
     "fileId": "042wv4jsNO1qt3S9dmmp0s",
+    "instance": null,
     "targetOverrides": null
   }
 ]
